@@ -15,6 +15,20 @@ mongo.connect(uri)
 
 async function run() {
     try {
+        /**
+         * url: "/user"
+         * method: POST
+         * create user in mongodb database. 
+         * data sample:
+         * {
+         *  name:user name,
+         *  email: user email,
+         * }
+         * returns:
+         * user data if the user exist otherwise create the user then send the data.
+         * status 201 means created user. 200 means user already exist
+         * if error occur then 'msg' key contains error message
+         */
         app.post("/user",logger,checkPost(['name','email']),async(req,res)=>{
             let data=req.body
             let t_user=await User.isUserExist(data.email)

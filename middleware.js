@@ -1,13 +1,12 @@
 const cc = require("node-console-colors");
 
-
 function logger(req, res, next) {
     let date = new Date()
     console.log(cc.set("fg_yellow", date.toLocaleString("en-US"), cc.set("fg_purple", req.method), cc.set("fg_cyan", req.url)));
     next()
 }
 /**
- *check keys from post request
+ *check required keys from frontend.
  *
  * @param {Array} expectedkeys - keys of data
  * @returns 404 if keys does not match. otherwise execute next()
