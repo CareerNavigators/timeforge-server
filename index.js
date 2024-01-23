@@ -19,10 +19,11 @@ async function run() {
          * url: "/user"
          * method: POST
          * create user in mongodb database. 
-         * data sample:
+         * req.body:
          * {
-         *  name:user name,
-         *  email: user email,
+         *  name:user name, - required
+         *  email: user email, - required
+         *  img_profile: profile picture of user - optional
          * }
          * returns:
          * user data if the user exist otherwise create the user then send the data.
@@ -30,13 +31,9 @@ async function run() {
          * if error occur then 'msg' key contains error message
          */
         app.post("/user",logger,checkPost(['name','email']),async(req,res)=>{
-            let data=req.body
-            let t_user=await User.isUserExist(data.email)
+            let t_user=await User.isUserExist(req.body.email)
             if (t_user==null){
-                const user=new User({
-                    name:data.name,
-                    email:data.email
-                })
+                const user=new User(req.body)
                 try {
                     let result=await user.save() 
                     res.status(201).send(result)
