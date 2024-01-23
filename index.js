@@ -4,7 +4,7 @@ const express = require('express')
 const cors = require('cors');
 const mongo = require('mongoose');
 const { User } = require("./schema")
-const { logger, checkPost } = require("./middleware")
+const { logger, checkBody,emptyBodyChecker,emptyQueryChecker } = require("./middleware")
 
 const app = express()
 const port = process.env.PORT || 5111
@@ -13,7 +13,16 @@ app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`
 mongo.connect(uri)
 
-
+/**
+ * sends 500 error with error server side any other un handel error.
+ * 
+ * @param {express.res} res 
+ * @param {Error} err 
+ * 
+ */
+function erroResponse(res,err) {
+    res.status(500).send({ msg: err.message })
+}
 
 async function run() {
     try {
@@ -32,7 +41,7 @@ async function run() {
          * status 201 means created user. 200 means user already exist
          * if error occur then 'msg' key contains error message
          */
-        app.post("/user", logger, checkPost(['name', 'email']), async (req, res) => {
+        app.post("/user", logger,emptyBodyChecker, checkBody(['name', 'email']), async (req, res) => {
             let t_user = await User.isUserExist(req.body.email)
             if (t_user == null) {
                 const user = new User(req.body)
@@ -40,7 +49,7 @@ async function run() {
                     let result = await user.save()
                     res.status(201).send(result)
                 } catch (e) {
-                    res.status(500).send({ msg: e.message })
+                    erroResponse(res,e)
                 }
             } else {
                 res.status(200).send(t_user)
@@ -61,22 +70,61 @@ async function run() {
          * }
          * res:
          * 500 - if anything goes wrong
-         * 304 - update failed hole
+         * 400 - update failed hole
          * 202 - update Successful. return the updated element
          */
-        app.patch("/user/:id", logger, async (req, res) => {
+        app.patch("/user/:id", logger,emptyBodyChecker, async (req, res) => {
             User.findOneAndUpdate({ _id: req.params.id }, req.body,{new:true}).then(result => {
                 if (result!=null) {
                     res.status(202).send(result)
                 }else{
-                    res.status(304).send({msg:"Update failed."})
+                    res.status(400).send({msg:"Update failed."})
                 }
             }).catch(e => {
-                console.log(e);
-                res.status(500).send({ msg: e.message })
+                erroResponse(res,e)
             })
         })
-
+        /**
+         * Get single user by email or id.
+         * req.query:
+         * {
+         *  email: user email
+         * }
+         * or 
+         * {
+         *  id: user id
+         * }
+         * res:
+         * 200 - user data.
+         * 404 - notfound
+         * 400 - if query does not contain email or id
+         */
+        app.get("/user",logger,emptyQueryChecker,async(req,res)=>{
+            let query=req.query
+            if (query?.email) {
+                User.findOne({email:query.email}).then(result=>{
+                    if (result!=null) {
+                        res.status(200).send(result)
+                    }else{
+                        res.status(404).send({msg:"User not found"})
+                    }
+                }).catch(e=>{
+                    erroResponse(res,e)
+                })
+            }else if(query?.id){
+                User.findOne({_id:query.id}).then(result=>{
+                    if (result!=null) {
+                        res.status(200).send(result)
+                    }else{
+                        res.status(404).send({msg:"User not found"})
+                    }
+                }).catch(e=>{
+                    erroResponse(res,e)
+                })
+            }else{
+                res.status(400).send({msg:"Query invalid"})
+            }
+        })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
         return

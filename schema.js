@@ -50,6 +50,4 @@ userSchema.statics.isUserExist= async function (email) {
 
 
 const User=mongo.model("User",userSchema)
-module.exports={
-User:User
-}
+module.exports={User}
