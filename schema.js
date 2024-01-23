@@ -1,6 +1,5 @@
 const mongo =require("mongoose")
 const humanizeErrors = require('mongoose-error-humanizer')
-
 const userSchema=new mongo.Schema({
     name:{
         type:String,
@@ -32,3 +31,9 @@ const userSchema=new mongo.Schema({
 },{
     timestamps:true,
 })
+userSchema.post("save",humanizeErrors)
+userSchema.post("update",humanizeErrors)
+const User=mongo.model("User",userSchema)
+module.exports={
+User:User
+}
