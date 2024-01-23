@@ -14,9 +14,25 @@ mongo.connect(uri)
 
 async function run() {
     try {
-        app.post("/user",logger,checkPost,async(req,res)=>{
-            res.send({msg:"Nice"})
+        app.post("/user",logger,checkPost(['name','email']),async(req,res)=>{
+            let data=req.body
+            let t_user=await User.isUserExist(data.email)
+            if (t_user==null){
+                const user=new User({
+                    name:data.name,
+                    email:data.email
+                })
+                try {
+                    let result=await user.save() 
+                    res.status(201).send(result)
+                } catch (e) {
+                    res.status(500).send({msg:e.message})
+                }
+            }else{
+                res.status(200).send(t_user)
+            }
         })
+        
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
         return
