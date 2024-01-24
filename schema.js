@@ -16,7 +16,7 @@ const userSchema=new mongo.Schema({
     },
     img_cover:{
         type:String,
-        default:"https://i.pinimg.com/736x/ba/f1/10/baf110546432bcbe2b3c6581299087bf.jpg",
+        default:null,
     },
     country:{
         type:String,
@@ -30,24 +30,29 @@ const userSchema=new mongo.Schema({
     },
     img_profile:{
         type:String,
-        default:"https://static.vecteezy.com/system/resources/previews/020/765/399/non_2x/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg",
+        default:null,
+    },
+    gender:{
+        type:String,
+        default:null,
+        enum:['Male','Female','male','female']
     }
 },{
     timestamps:true,
 })
 userSchema.post("save",humanizeErrors)
 userSchema.post("update",humanizeErrors)
-
-/** 
- * @param {String} email - Email of the user
- * @returns {Boolean}
-*/
 userSchema.statics.isUserExist= async function (email) {
     let user= await User.findOne({email:email})
     return user
 }
 
+// const taskSchema=new mongo.Model({
+//     duration:{
+//         type:Number,
+//     },
 
+// })
 
 const User=mongo.model("User",userSchema)
 module.exports={User}

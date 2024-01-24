@@ -4,7 +4,7 @@ const express = require('express')
 const cors = require('cors');
 const mongo = require('mongoose');
 const { User } = require("./schema")
-const { logger, checkBody,emptyBodyChecker,emptyQueryChecker } = require("./middleware")
+const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 
 const app = express()
 const port = process.env.PORT || 5111
@@ -20,9 +20,10 @@ mongo.connect(uri)
  * @param {Error} err 
  * 
  */
-function erroResponse(res,err) {
+function erroResponse(res, err) {
     res.status(500).send({ msg: err.message })
 }
+
 
 async function run() {
     try {
@@ -41,7 +42,7 @@ async function run() {
          * status 201 means created user. 200 means user already exist
          * if error occur then 'msg' key contains error message
          */
-        app.post("/user", logger,emptyBodyChecker, checkBody(['name', 'email']), async (req, res) => {
+        app.post("/user", logger, emptyBodyChecker, checkBody(['name', 'email']), async (req, res) => {
             let t_user = await User.isUserExist(req.body.email)
             if (t_user == null) {
                 const user = new User(req.body)
@@ -49,7 +50,7 @@ async function run() {
                     let result = await user.save()
                     res.status(201).send(result)
                 } catch (e) {
-                    erroResponse(res,e)
+                    erroResponse(res, e)
                 }
             } else {
                 res.status(200).send(t_user)
@@ -73,16 +74,27 @@ async function run() {
          * 400 - update failed hole
          * 202 - update Successful. return the updated element
          */
-        app.patch("/user/:id", logger,emptyBodyChecker, async (req, res) => {
-            User.findOneAndUpdate({ _id: req.params.id }, req.body,{new:true}).then(result => {
-                if (result!=null) {
+        app.patch("/user/:id", logger, emptyBodyChecker, async (req, res) => {
+            try {
+                let user= await User.findById(req.params.id);
+                if (user!=null) {
+                    let modelKeys=Object.keys(User.schema.paths)
+                    for (const key of Object.keys(req.body)) {
+                        if (!modelKeys.includes(key)) {
+                            res.status(400).send({msg:`'${key}' is not a valid key. Update failed.`})
+                            return
+                        }else{
+                            user[key] = req.body[key]
+                        }
+                    }
+                    let result=await user.save()
                     res.status(202).send(result)
                 }else{
-                    res.status(400).send({msg:"Update failed."})
+                    res.status(404).send({msg:"User not found"})
                 }
-            }).catch(e => {
-                erroResponse(res,e)
-            })
+            } catch (e) {
+                erroResponse(res, e)
+            }
         })
         /**
          * Get single user by email or id.
@@ -99,30 +111,30 @@ async function run() {
          * 404 - notfound
          * 400 - if query does not contain email or id
          */
-        app.get("/user",logger,emptyQueryChecker,async(req,res)=>{
-            let query=req.query
+        app.get("/user", logger, emptyQueryChecker, async (req, res) => {
+            let query = req.query
             if (query?.email) {
-                User.findOne({email:query.email}).then(result=>{
-                    if (result!=null) {
+                User.findOne({ email: query.email }).then(result => {
+                    if (result != null) {
                         res.status(200).send(result)
-                    }else{
-                        res.status(404).send({msg:"User not found"})
+                    } else {
+                        res.status(404).send({ msg: "User not found" })
                     }
-                }).catch(e=>{
-                    erroResponse(res,e)
+                }).catch(e => {
+                    erroResponse(res, e)
                 })
-            }else if(query?.id){
-                User.findOne({_id:query.id}).then(result=>{
-                    if (result!=null) {
+            } else if (query?.id) {
+                User.findOne({ _id: query.id }).then(result => {
+                    if (result != null) {
                         res.status(200).send(result)
-                    }else{
-                        res.status(404).send({msg:"User not found"})
+                    } else {
+                        res.status(404).send({ msg: "User not found" })
                     }
-                }).catch(e=>{
-                    erroResponse(res,e)
+                }).catch(e => {
+                    erroResponse(res, e)
                 })
-            }else{
-                res.status(400).send({msg:"Query invalid"})
+            } else {
+                res.status(400).send({ msg: "Query invalid" })
             }
         })
     } catch (e) {
