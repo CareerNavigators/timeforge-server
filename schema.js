@@ -70,8 +70,9 @@ const meetingSchema=new mongo.Model({
         ref:"User"
     },
     events:{
-        type:[Event],
+        type:[mongo.Types.ObjectId],
         default:null,
+        ref:"Event"
     }
 })
 const Meeting=mongo.model("Meeting",meetingSchema)
