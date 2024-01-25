@@ -3,7 +3,7 @@ const express = require('express')
 
 const cors = require('cors');
 const mongo = require('mongoose');
-const { User } = require("./schema")
+const { User,Meeting,Event } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 
 const app = express()

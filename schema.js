@@ -46,13 +46,34 @@ userSchema.statics.isUserExist= async function (email) {
     let user= await User.findOne({email:email})
     return user
 }
-
-// const taskSchema=new mongo.Model({
-//     duration:{
-//         type:Number,
-//     },
-
-// })
-
 const User=mongo.model("User",userSchema)
-module.exports={User}
+const eventSchema=new mongo.Model({
+    dates:{
+        type:String,
+        default:null,
+    },
+    times:{
+        type:[String]
+    }
+})
+const Event=mongo.model("Event",eventSchema)
+const meetingSchema=new mongo.Model({
+    duration:{
+        type:Number,
+    },
+    description:{
+        type:String,
+        default:null,
+    },
+    createdBy:{
+        type:mongo.Types.ObjectId,
+        ref:"User"
+    },
+    events:{
+        type:[Event],
+        default:null,
+    }
+})
+const Meeting=mongo.model("Meeting",meetingSchema)
+
+module.exports={User,Meeting,Event}
