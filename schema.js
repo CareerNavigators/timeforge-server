@@ -47,7 +47,7 @@ userSchema.statics.isUserExist= async function (email) {
     return user
 }
 const User=mongo.model("User",userSchema)
-const eventSchema=new mongo.Model({
+const eventSchema=new mongo.Schema({
     dates:{
         type:String,
         default:null,
@@ -57,23 +57,24 @@ const eventSchema=new mongo.Model({
     }
 })
 const Event=mongo.model("Event",eventSchema)
-const meetingSchema=new mongo.Model({
+const meetingSchema=new mongo.Schema({
     duration:{
         type:Number,
     },
-    description:{
+    desc:{
         type:String,
         default:null,
     },
     createdBy:{
-        type:mongo.Types.ObjectId,
+        type:mongo.Schema.Types.ObjectId,
         ref:"User"
     },
     events:{
-        type:[mongo.Types.ObjectId],
+        type:mongo.Schema.Types.Mixed,
         default:null,
-        ref:"Event"
-    }
+    },
+},{
+    timestamps:true,
 })
 const Meeting=mongo.model("Meeting",meetingSchema)
 

@@ -3,7 +3,7 @@ const express = require('express')
 
 const cors = require('cors');
 const mongo = require('mongoose');
-const { User,Meeting,Event } = require("./schema")
+const { User, Meeting, Event } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 
 const app = express()
@@ -55,7 +55,7 @@ async function run() {
             } else {
                 res.status(200).send(t_user)
             }
-        })
+        });
         /**
          * Update user information
          * url:/user/:id - :id = user id from database
@@ -76,26 +76,26 @@ async function run() {
          */
         app.patch("/user/:id", logger, emptyBodyChecker, async (req, res) => {
             try {
-                let user= await User.findById(req.params.id);
-                if (user!=null) {
-                    let modelKeys=Object.keys(User.schema.paths)
+                let user = await User.findById(req.params.id);
+                if (user != null) {
+                    let modelKeys = Object.keys(User.schema.paths)
                     for (const key of Object.keys(req.body)) {
                         if (!modelKeys.includes(key)) {
-                            res.status(400).send({msg:`'${key}' is not a valid key. Update failed.`})
+                            res.status(400).send({ msg: `'${key}' is not a valid key. Update failed.` })
                             return
-                        }else{
+                        } else {
                             user[key] = req.body[key]
                         }
                     }
-                    let result=await user.save()
+                    let result = await user.save()
                     res.status(202).send(result)
-                }else{
-                    res.status(404).send({msg:"User not found"})
+                } else {
+                    res.status(404).send({ msg: "User not found" })
                 }
             } catch (e) {
                 erroResponse(res, e)
             }
-        })
+        });
         /**
          * Get single user by email or id.
          * req.query:
@@ -136,7 +136,24 @@ async function run() {
             } else {
                 res.status(400).send({ msg: "Query invalid" })
             }
-        })
+        });
+        /**
+        * Crate Event
+        * req.body:
+        * {
+        *   duration: time in minutes,
+        *   desc: event description,
+        *   createdby: user id, - right now send the data from localStorage. After JWT it will fetch from cookies
+        *   events:{
+        *       201024:[9:30AM,4:50PM],
+        *       211024:[9:10PM,4:50PM]
+        *   },
+        *   
+        * }
+        */
+        app.post("/event", logger, emptyBodyChecker, async (req, res) => {
+            let data = req.body
+        });
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
         return
