@@ -42,7 +42,7 @@ function checkBody(expectedkeys) {
         if (req.method == "POST") {
             let notfound = new Array()
             let keys = Object.keys(req.body)
-            if (expectedkeys.length < keys.length) {
+            if (expectedkeys.length <= keys.length) {
                 expectedkeys.forEach(key => {
                     let isInside = keys.includes(key)
                     if (!isInside) {
