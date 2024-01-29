@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express')
-
 const cors = require('cors');
 const mongo = require('mongoose');
 const { User, Meeting, Attendee } = require("./schema")
@@ -12,9 +11,6 @@ app.use(cors());
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`
 mongo.connect(uri)
-
-
-
 
 async function run() {
     try {
@@ -210,6 +206,17 @@ async function run() {
                 erroResponse(res, error)
             }
         })
+        app.delete("/meeting/:id", logger, async (req, res) => {
+            try {
+                Meeting.findByIdAndDelete(req.params.id).then(result => {
+                    res.status(200).send(result)
+                }).catch(e => {
+                    res.status(400).send({ msg: e.message })
+                })
+            } catch (error) {
+                erroResponse(res, error)
+            }
+        })
         app.post("/attendee", logger, emptyBodyChecker, checkBody(['name', 'email', 'event', 'slot']), async (req, res) => {
             try {
                 const attendee = new Attendee(req.body)
@@ -240,6 +247,13 @@ async function run() {
             } catch (error) {
                 erroResponse(res, error)
             }
+        })
+        app.delete("/attendee/:id", logger, async (req, res) => {
+            Attendee.findByIdAndDelete(req.params.id).then(result => {
+                res.status(200).send(result)
+            }).catch(e => {
+                res.status(400).send({ msg: e.message })
+            })
         })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
