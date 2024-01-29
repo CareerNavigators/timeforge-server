@@ -45,7 +45,6 @@ const User=mongo.model("User",userSchema)
 const meetingSchema=new mongo.Schema({
     title:{
         type:mongo.Schema.Types.String,
-        unique:true,
         require:true,
     },
     duration:{
@@ -74,4 +73,30 @@ const meetingSchema=new mongo.Schema({
 })
 const Meeting=mongo.model("Meeting",meetingSchema)
 
-module.exports={User,Meeting,Event}
+const attendeeSchema=new mongo.Schema({
+    name:{
+        type:mongo.Schema.Types.String,
+        require:true,
+    },
+    email:{
+        type:mongo.Schema.Types.String,
+        lowercase:true,
+        require:true,
+        trim:true,
+        match: [/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,"Invalid Email."],
+    },
+    event:{
+        type:mongo.Schema.Types.ObjectId,
+        ref:"Meeting",
+        require:true,
+    },
+    slot:{
+        type:mongo.Schema.Types.Mixed,
+        require:true,
+    }
+})
+attendeeSchema.index({ "email": 1, "event": 1}, { "unique": true });
+
+const Attendee=mongo.model("Attendee",attendeeSchema)
+
+module.exports={User,Meeting,Event,Attendee}
