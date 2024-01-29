@@ -5,7 +5,7 @@ const cors = require('cors');
 const mongo = require('mongoose');
 const { User, Meeting, Attendee } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
-const {erroResponse}=require("./util")
+const { erroResponse } = require("./util")
 const app = express()
 const port = process.env.PORT || 5111
 app.use(cors());
@@ -143,12 +143,12 @@ async function run() {
          * 201 - event created. and return created event
          * 400 - failed to create
          */
-        app.post("/meeting",logger,emptyBodyChecker,checkBody(['title','duration','createdBy','events','eventType']),async(req,res)=>{
-            const meeting=new Meeting(req.body)
-            meeting.save().then(result=>{
+        app.post("/meeting", logger, emptyBodyChecker, checkBody(['title', 'duration', 'createdBy', 'events', 'eventType']), async (req, res) => {
+            const meeting = new Meeting(req.body)
+            meeting.save().then(result => {
                 res.status(201).send(result)
-            }).catch(e=>{
-                res.status(400).send({msg:"Meeting Creation Failed."})
+            }).catch(e => {
+                res.status(400).send({ msg: "Meeting Creation Failed." })
             })
 
         })
@@ -159,70 +159,87 @@ async function run() {
          * 200 - meetings or meeting
          * 404 - not found event
          */
-        app.get("/meeting",logger,emptyQueryChecker,async (req,res)=>{
+        app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
             try {
-                if (req.query.type=="all") {
-                    Meeting.where("createdBy").equals(req.query.id).select("-createdBy -desc -events").then(result=>{
-                        if(result.length!=0){
+                if (req.query.type == "all") {
+                    Meeting.where("createdBy").equals(req.query.id).select("-createdBy -desc -events").then(result => {
+                        if (result.length != 0) {
                             res.status(200).send(result)
-                        }else{
-                            res.send({msg:"No meetings found."})
+                        } else {
+                            res.send({ msg: "No meetings found." })
                         }
                     })
-                }else if(req.query.type="single"){
-                    Meeting.findById(req.query.id).then(result=>{
+                } else if (req.query.type = "single") {
+                    Meeting.findById(req.query.id).then(result => {
                         res.status(200).send(result)
-                    }).catch(e=>{
-                        res.status(404).send({msg:"Meeting not found."})
+                    }).catch(e => {
+                        res.status(404).send({ msg: "Meeting not found." })
                     })
-                }else{
-                    res.status(400).send({msg:"Expected query failed."})
+                } else {
+                    res.status(400).send({ msg: "Expected query failed." })
                 }
             } catch (e) {
-                erroResponse(res,e)
+                erroResponse(res, e)
             }
-            
+
         })
-        app.patch("/meeting/:id",logger,emptyBodyChecker,async(req,res)=>{
+        app.patch("/meeting/:id", logger, emptyBodyChecker, async (req, res) => {
             try {
-                Meeting.findById(req.params.id).then(result=>{
-                    let modelKeys=Object.keys(Meeting.schema.paths)
+                Meeting.findById(req.params.id).then(result => {
+                    let modelKeys = Object.keys(Meeting.schema.paths)
                     console.log(modelKeys);
                     for (const key of Object.keys(req.body)) {
                         if (!modelKeys.includes(key)) {
                             res.status(400).send({ msg: `'${key}' is not a valid key. Update failed.` })
                             return
-                        }else{
-                            result[key]=req.body[key]
+                        } else {
+                            result[key] = req.body[key]
                         }
                     }
-                    result.save().then(result=>{
+                    result.save().then(result => {
                         res.status(202).send(result)
-                    }).catch(e=>{
+                    }).catch(e => {
                         console.log(e);
-                        res.status(400).send({msg:"Update Failed"})
+                        res.status(400).send({ msg: "Update Failed" })
                     })
-                }).catch(e=>{
+                }).catch(e => {
                     console.log(e);
                     res.status(400).send("Meeting not found.")
                 })
             } catch (error) {
-                erroResponse(res,error)
+                erroResponse(res, error)
             }
         })
-        app.post("/attendee",logger,emptyBodyChecker,checkBody(['name','email','event','slot']),async(req,res)=>{
+        app.post("/attendee", logger, emptyBodyChecker, checkBody(['name', 'email', 'event', 'slot']), async (req, res) => {
             try {
-                const attendee=new Attendee(req.body)
-            attendee.save().then(result=>{
-                res.status(201).send(result)
-            }).catch(e=>{
-                console.log(e);
-                res.status(400).send({msg:"Attendance failed."})
-            })
+                const attendee = new Attendee(req.body)
+                attendee.save().then(result => {
+                    res.status(201).send(result)
+                }).catch(e => {
+                    if (e.code == 11000) {
+                        res.status(400).send({ msg: `${req.body.email} already in attendee list for this event.` })
+                    } else {
+
+                        res.status(400).send({ msg: e.message })
+                    }
+                })
             } catch (e) {
-                erroResponse(res,e)
+                erroResponse(res, e)
             }
-            
+
+        })
+        app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
+            try {
+                Attendee.where("event").equals(req.query.id).then(result => {
+                    if (result.length != 0) {
+                        res.status(200).send(result)
+                    } else {
+                        res.status(400).send({ msg: "No attendee found." })
+                    }
+                })
+            } catch (error) {
+                erroResponse(res, error)
+            }
         })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
