@@ -210,6 +210,20 @@ async function run() {
                 erroResponse(res,error)
             }
         })
+        app.post("/attendee",logger,emptyBodyChecker,checkBody(['name','email','event','slot']),async(req,res)=>{
+            try {
+                const attendee=new Attendee(req.body)
+            attendee.save().then(result=>{
+                res.status(201).send(result)
+            }).catch(e=>{
+                console.log(e);
+                res.status(400).send({msg:"Attendance failed."})
+            })
+            } catch (e) {
+                erroResponse(res,e)
+            }
+            
+        })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
         return
