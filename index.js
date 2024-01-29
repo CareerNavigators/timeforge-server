@@ -138,22 +138,17 @@ async function run() {
             }
         });
         /**
-        * Crate Event
-        * req.body:
-        * {
-        *   duration: time in minutes,
-        *   desc: event description,
-        *   createdby: user id, - right now send the data from localStorage. After JWT it will fetch from cookies
-        *   events:{
-        *       201024:[9:30AM,4:50PM],
-        *       211024:[9:10PM,4:50PM]
-        *   },
-        *   
-        * }
-        */
-        app.post("/event", logger, emptyBodyChecker, async (req, res) => {
-            let data = req.body
-        });
+         * 
+         */
+        app.post("/meeting",logger,emptyBodyChecker,checkBody(['title','duration','createdBy','events','eventType']),async(req,res)=>{
+            console.log(req.body);
+            const meeting=new Meeting(req.body)
+            meeting.save().then(result=>{
+                res.status(201).send(result)
+            }).catch(e=>{
+                erroResponse(res,e)
+            })
+        })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
         return
