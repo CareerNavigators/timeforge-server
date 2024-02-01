@@ -54,6 +54,7 @@ function checkBody(expectedkeys) {
                     return
                 }
             } else {
+                console.log(req.body);
                 res.status(400).send({ msg: "expectation failed." })
                 return
             }

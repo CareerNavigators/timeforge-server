@@ -139,7 +139,7 @@ async function run() {
          * 201 - event created. and return created event
          * 400 - failed to create
          */
-        app.post("/meeting", logger, emptyBodyChecker, checkBody(['title', 'duration', 'createdBy', 'events', 'eventType']), async (req, res) => {
+        app.post("/meeting", logger, emptyBodyChecker, checkBody(['title', 'duration', 'createdBy', 'events', 'eventType',"camera","mic"]), async (req, res) => {
             const meeting = new Meeting(req.body)
             meeting.save().then(result => {
                 res.status(201).send(result)
@@ -158,7 +158,7 @@ async function run() {
         app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
             try {
                 if (req.query.type == "all") {
-                    Meeting.where("createdBy").equals(req.query.id).select("-createdBy -desc -events").then(result => {
+                    Meeting.where("createdBy").equals(req.query.id).select("-createdBy -desc -events -__v   ").then(result => {
                         if (result.length != 0) {
                             res.status(200).send(result)
                         } else {
@@ -265,3 +265,5 @@ run().catch(console.dir);
 
 app.get('/', (req, res) => { res.send("Backend Running") });
 app.listen(port, () => { console.log(`Server Started at ${port}`) });
+
+
