@@ -32,14 +32,14 @@ const userSchema = new mongo.Schema({
         type: mongo.Schema.Types.String,
         default: null,
     },
-    desc:{
-        type:String,
-        default:null
+    desc: {
+        type: String,
+        default: null
     },
-    phone:{
-        type:String,
-        trim:true,
-        maxLength:20,
+    phone: {
+        type: String,
+        trim: true,
+        maxLength: 20,
     }
 }, {
     timestamps: true,
@@ -77,17 +77,17 @@ const meetingSchema = new mongo.Schema({
         type: mongo.Schema.Types.String,
         require: true,
     },
-    camera:{
-        type:Boolean,
-        default:false,
+    camera: {
+        type: Boolean,
+        default: false,
     },
-    mic:{
-        type:Boolean,
-        default:false,
+    mic: {
+        type: Boolean,
+        default: false,
     },
-    attendee:{
-        type:Number,
-        default:0,
+    attendee: {
+        type: Number,
+        default: 0,
     }
 }, {
     timestamps: true,
@@ -118,12 +118,12 @@ const attendeeSchema = new mongo.Schema({
 })
 attendeeSchema.index({ "email": 1, "event": 1 }, { "unique": true });
 
-attendeeSchema.post("save",async function(doc){
+attendeeSchema.post("save", async function (doc) {
     try {
-        Meeting.findById(doc.event).then(async result=>{
-            result.attendee+=1
+        Meeting.findById(doc.event).then(async result => {
+            result.attendee += 1
             await result.save()
-        }).catch(e=>{
+        }).catch(e => {
             console.log(`118:attendeeSchema:post:save:${e.message}`);
         })
     } catch (e) {
@@ -131,7 +131,6 @@ attendeeSchema.post("save",async function(doc){
     }
 
 })
-
 
 const Attendee = mongo.model("Attendee", attendeeSchema)
 

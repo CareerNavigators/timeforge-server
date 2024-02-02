@@ -210,10 +210,12 @@ async function run() {
             try {
                 Meeting.findByIdAndDelete(req.params.id).then(result => {
                     res.status(200).send(result)
+
                 }).catch(e => {
                     res.status(400).send({ msg: e.message })
                 })
             } catch (error) {
+                console.log(error);
                 erroResponse(res, error)
             }
         })
@@ -249,8 +251,14 @@ async function run() {
             }
         })
         app.delete("/attendee/:id", logger, async (req, res) => {
-            Attendee.findByIdAndDelete(req.params.id).then(result => {
-                res.status(200).send(result)
+            Attendee.findByIdAndDelete(req.params.id).then( result => {
+                Meeting.findById(result.event).then( async result2=>{
+                    result2.attendee-=1
+                    await result2.save()
+                    res.status(200).send({msg:`${result.name} Delete successfully`})
+                }).catch(e=>{
+                    res.status(400).send({ msg: e.message })
+                })
             }).catch(e => {
                 res.status(400).send({ msg: e.message })
             })
