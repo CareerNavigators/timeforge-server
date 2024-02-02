@@ -88,6 +88,10 @@ const meetingSchema = new mongo.Schema({
     attendee: {
         type: Number,
         default: 0,
+    },
+    isNote:{
+        type:Boolean,
+        default:false,
     }
 }, {
     timestamps: true,
@@ -129,9 +133,41 @@ attendeeSchema.post("save", async function (doc) {
     } catch (e) {
         console.log(`121:attendeeSchema:post:save:${e.message}`);
     }
-
 })
 
 const Attendee = mongo.model("Attendee", attendeeSchema)
 
-module.exports = { User, Meeting, Event, Attendee }
+
+const noteSchema=new mongo.Schema({
+    event: {
+        type: mongo.Schema.Types.ObjectId,
+        ref: "Meeting",
+        require: true,
+    },
+    createdBy: {
+        type: mongo.Schema.Types.ObjectId,
+        ref: "User",
+        require: true,
+    },
+    content:{
+        type:String,
+        trim:true,
+    }
+})
+noteSchema.post("save",async function (doc) {
+    try {
+        Meeting.findById(doc.event).then(async result => {
+            result.isNote =true
+            await result.save()
+        }).catch(e => {
+            console.log(`118:attendeeSchema:post:save:${e.message}`);
+        })
+    } catch (e) {
+        console.log(`121:attendeeSchema:post:save:${e.message}`);
+    }
+})
+
+const Note = mongo.model("Note", noteSchema)
+
+
+module.exports = { User, Meeting, Event, Attendee,Note }

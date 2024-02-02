@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express')
 const cors = require('cors');
 const mongo = require('mongoose');
-const { User, Meeting, Attendee } = require("./schema")
+const { User, Meeting, Attendee,Note } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 const { erroResponse } = require("./util")
 const app = express()
@@ -261,6 +261,30 @@ async function run() {
                 })
             }).catch(e => {
                 res.status(400).send({ msg: e.message })
+            })
+        })
+
+        app.post("/note",logger,emptyBodyChecker,checkBody(['event','createdBy','content']),async(req,res)=>{
+            try {
+                const newNote=new Note(req.body)
+                newNote.save().then(result => {
+                    res.status(201).send(result)
+                }).catch(e => {
+                    erroResponse(res, e)
+                })
+            } catch (e) {
+                erroResponse(res, e)
+            }
+        })
+        app.get("/note",logger,emptyQueryChecker,async(req,res)=>{
+            Note.where('createdBy').equals(req.query.createdBy).where('event').equals(req.query.event).then(result=>{
+                if (result.length!=0) {
+                    res.status(200).send(result.lean)
+                }else{
+                    res.status(400).send({msg:"No Notes found"})
+                }
+            }).catch(e=>{
+                erroResponse(res,e)
             })
         })
     } catch (e) {
