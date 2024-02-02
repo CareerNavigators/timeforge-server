@@ -18,7 +18,7 @@ const userSchema = new mongo.Schema({
         type: mongo.Schema.Types.String,
         default: null,
     },
-    country: {
+    location: {
         type: mongo.Schema.Types.String,
         default: null,
         trim: true,

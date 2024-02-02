@@ -144,7 +144,7 @@ async function run() {
             meeting.save().then(result => {
                 res.status(201).send(result)
             }).catch(e => {
-                res.status(400).send({ msg: "Meeting Creation Failed." })
+                res.status(400).send({ msg: `Meeting Creation Failed.${e.message}` })
             })
 
         })
