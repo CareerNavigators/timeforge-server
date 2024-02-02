@@ -32,6 +32,15 @@ const userSchema = new mongo.Schema({
         type: mongo.Schema.Types.String,
         default: null,
     },
+    desc:{
+        type:String,
+        default:null
+    },
+    phone:{
+        type:String,
+        trim:true,
+        maxLength:20,
+    }
 }, {
     timestamps: true,
 })
