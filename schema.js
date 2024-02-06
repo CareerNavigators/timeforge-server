@@ -96,6 +96,8 @@ const meetingSchema = new mongo.Schema({
 }, {
     timestamps: true,
 })
+meetingSchema.post("save", humanizeErrors)
+meetingSchema.post("update", humanizeErrors)
 const Meeting = mongo.model("Meeting", meetingSchema)
 
 const attendeeSchema = new mongo.Schema({
@@ -120,6 +122,7 @@ const attendeeSchema = new mongo.Schema({
         require: true,
     }
 })
+
 attendeeSchema.index({ "email": 1, "event": 1 }, { "unique": true });
 
 attendeeSchema.post("save", async function (doc) {
@@ -134,15 +137,20 @@ attendeeSchema.post("save", async function (doc) {
         console.log(`121:attendeeSchema:post:save:${e.message}`);
     }
 })
-
+attendeeSchema.post("save", humanizeErrors)
+attendeeSchema.post("update", humanizeErrors)
 const Attendee = mongo.model("Attendee", attendeeSchema)
 
 
 const noteSchema=new mongo.Schema({
-    event: {
+    title:{
+        type:String,
+    },
+    meeting: {
         type: mongo.Schema.Types.ObjectId,
         ref: "Meeting",
         require: true,
+        unique:true,
     },
     createdBy: {
         type: mongo.Schema.Types.ObjectId,
@@ -166,7 +174,8 @@ noteSchema.post("save",async function (doc) {
         console.log(`121:attendeeSchema:post:save:${e.message}`);
     }
 })
-
+noteSchema.post("save", humanizeErrors)
+noteSchema.post("update", humanizeErrors)
 const Note = mongo.model("Note", noteSchema)
 
 

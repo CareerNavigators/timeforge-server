@@ -263,8 +263,7 @@ async function run() {
                 res.status(400).send({ msg: e.message })
             })
         })
-
-        app.post("/note",logger,emptyBodyChecker,checkBody(['event','createdBy','content']),async(req,res)=>{
+        app.post("/note",logger,emptyBodyChecker,checkBody(['meeting','createdBy','title']),async(req,res)=>{
             try {
                 const newNote=new Note(req.body)
                 newNote.save().then(result => {
@@ -277,15 +276,31 @@ async function run() {
             }
         })
         app.get("/note",logger,emptyQueryChecker,async(req,res)=>{
-            Note.where('createdBy').equals(req.query.createdBy).where('event').equals(req.query.event).then(result=>{
-                if (result.length!=0) {
-                    res.status(200).send(result.lean)
-                }else{
-                    res.status(400).send({msg:"No Notes found"})
-                }
-            }).catch(e=>{
-                erroResponse(res,e)
-            })
+            if (req.query?.userid) {
+                Note.where('createdBy').equals(req.query?.userid).then(result=>{
+                    if (result.length!=0) {
+                        res.status(200).send(result)
+                    }else{
+                        res.status(404).send({msg:"Notes not found"})
+                    }
+                }).catch(e=>{
+                    erroResponse(res,e)
+                })
+            }else if(req.query?.noteid){
+                Note.findById(noteid).then(result=>{
+                    res.status(200).send(result)
+                }).catch(e=>{
+                    erroResponse(res,e)
+                })
+            }else if(req.query?.meetingid){
+                Note.where("meeting").equals(meetingid).then(result=>{
+                    if (result.length!=0) {
+                        res.status(200).send(result[0])
+                    }else{
+                        res.status(404).send({msg:"Notes not found"})
+                    }
+                })
+            }
         })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
