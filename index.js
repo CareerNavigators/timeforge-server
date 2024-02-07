@@ -302,6 +302,18 @@ async function run() {
                 })
             }
         })
+        app.get("/usercharts",logger,emptyQueryChecker,async(req,res)=>{
+            let id=req.query.id;
+            Meeting.where("createdBy").equals(id).select("-_id title attendee").then(result=>{
+                let meeting=new Array();
+                let attendee=new Array()
+                for (const item of result) {
+                    meeting.push(item.title)
+                    attendee.push(item.attendee)
+                }
+                res.status(200).send({meeting,attendee})
+            })
+        })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
         return
