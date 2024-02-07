@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express')
 const cors = require('cors');
 const mongo = require('mongoose');
-const { User, Meeting, Attendee,Note } = require("./schema")
+const { User, Meeting, Attendee, Note } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 const { erroResponse } = require("./util")
 const app = express()
@@ -139,7 +139,7 @@ async function run() {
          * 201 - event created. and return created event
          * 400 - failed to create
          */
-        app.post("/meeting", logger, emptyBodyChecker, checkBody(['title', 'duration', 'createdBy', 'events', 'eventType',"camera","mic"]), async (req, res) => {
+        app.post("/meeting", logger, emptyBodyChecker, checkBody(['title', 'duration', 'createdBy', 'events', 'eventType', "camera", "mic"]), async (req, res) => {
             const meeting = new Meeting(req.body)
             meeting.save().then(result => {
                 res.status(201).send(result)
@@ -251,21 +251,21 @@ async function run() {
             }
         })
         app.delete("/attendee/:id", logger, async (req, res) => {
-            Attendee.findByIdAndDelete(req.params.id).then( result => {
-                Meeting.findById(result.event).then( async result2=>{
-                    result2.attendee-=1
+            Attendee.findByIdAndDelete(req.params.id).then(result => {
+                Meeting.findById(result.event).then(async result2 => {
+                    result2.attendee -= 1
                     await result2.save()
-                    res.status(200).send({msg:`${result.name} Delete successfully`})
-                }).catch(e=>{
+                    res.status(200).send({ msg: `${result.name} Delete successfully` })
+                }).catch(e => {
                     res.status(400).send({ msg: e.message })
                 })
             }).catch(e => {
                 res.status(400).send({ msg: e.message })
             })
         })
-        app.post("/note",logger,emptyBodyChecker,checkBody(['meeting','createdBy','title']),async(req,res)=>{
+        app.post("/note", logger, emptyBodyChecker, checkBody(['meeting', 'createdBy', 'title']), async (req, res) => {
             try {
-                const newNote=new Note(req.body)
+                const newNote = new Note(req.body)
                 newNote.save().then(result => {
                     res.status(201).send(result)
                 }).catch(e => {
@@ -275,47 +275,62 @@ async function run() {
                 erroResponse(res, e)
             }
         })
-        app.get("/note",logger,emptyQueryChecker,async(req,res)=>{
+        app.get("/note", logger, emptyQueryChecker, async (req, res) => {
             if (req.query?.userid) {
-                Note.where('createdBy').equals(req.query?.userid).then(result=>{
-                    if (result.length!=0) {
+                Note.where('createdBy').equals(req.query?.userid).then(result => {
+                    if (result.length != 0) {
                         res.status(200).send(result)
-                    }else{
-                        res.status(404).send({msg:"Notes not found"})
+                    } else {
+                        res.status(404).send({ msg: "Notes not found" })
                     }
-                }).catch(e=>{
-                    erroResponse(res,e)
+                }).catch(e => {
+                    erroResponse(res, e)
                 })
-            }else if(req.query?.noteid){
-                Note.findById(noteid).then(result=>{
+            } else if (req.query?.noteid) {
+                Note.findById(noteid).then(result => {
                     res.status(200).send(result)
-                }).catch(e=>{
-                    erroResponse(res,e)
+                }).catch(e => {
+                    erroResponse(res, e)
                 })
-            }else if(req.query?.meetingid){
-                Note.where("meeting").equals(meetingid).then(result=>{
-                    if (result.length!=0) {
+            } else if (req.query?.meetingid) {
+                Note.where("meeting").equals(meetingid).then(result => {
+                    if (result.length != 0) {
                         res.status(200).send(result[0])
-                    }else{
-                        res.status(404).send({msg:"Notes not found"})
+                    } else {
+                        res.status(404).send({ msg: "Notes not found" })
                     }
                 })
             }
         })
-        app.get("/usercharts",logger,emptyQueryChecker,async(req,res)=>{
-            let id=req.query.id;
-            let meeting=new Array();
-            let attendee=new Array()
-            Meeting.where("createdBy").equals(id).select("-_id title attendee").then(result=>{
-                if (result.length!=0) {
+        app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
+            let id = req.query.id;
+            let meeting = new Array();
+            let attendee = new Array()
+            let eventType = new Array()
+            let eventNumber = new Array()
+            Meeting.where("createdBy").equals(id).select("-_id title attendee").then(async result => {
+                if (result.length != 0) {
                     for (const item of result) {
                         meeting.push(item.title)
                         attendee.push(item.attendee)
                     }
                 }
-                res.status(200).send({meeting,attendee})
-            }).catch(e=>{
-                res.status(200).send({meeting,attendee,error:e.message})
+                Meeting.aggregate([
+                    {
+                        $group: {
+                            _id: "$eventType",
+                            count: { $sum: 1 }
+                        }
+                    }
+                ]).then(results => {
+                    for (const item of results) {
+                        eventType.push(item._id)
+                        eventNumber.push(item.count)
+                    }
+                    res.status(200).send({ meeting, attendee, eventType, eventNumber })
+                })
+            }).catch(e => {
+                res.status(200).send({ meeting, attendee, eventType, eventNumber, error: e.message })
             })
         })
     } catch (e) {
