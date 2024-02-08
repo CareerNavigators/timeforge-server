@@ -252,13 +252,7 @@ async function run() {
         })
         app.delete("/attendee/:id", logger, async (req, res) => {
             Attendee.findByIdAndDelete(req.params.id).then(result => {
-                Meeting.findById(result.event).then(async result2 => {
-                    result2.attendee -= 1
-                    await result2.save()
-                    res.status(200).send({ msg: `${result.name} Delete successfully` })
-                }).catch(e => {
-                    res.status(400).send({ msg: e.message })
-                })
+                res.status(200).send({ msg: `${result.name} Delete successfully` })
             }).catch(e => {
                 res.status(400).send({ msg: e.message })
             })
@@ -332,6 +326,31 @@ async function run() {
             }).catch(e => {
                 res.status(200).send({ meeting, attendee, eventType, eventNumber, error: e.message })
             })
+        })
+
+        app.get("/admin/users", logger, async (req, res) => {
+            User.find().select("name email createdAt role totalMeeting").then(async (result)=>{
+                res.status(200).send(result)
+            }).catch(e => {
+                res.status(200).send({msg:e.message})
+            })
+        })
+        app.get("/admin/meetings",logger,async(req,res)=>{
+            Meeting.find().select("title duration eventType camera mic attendee createdAt").then(async (result)=>{
+                res.status(200).send(result)
+            }).catch(e => {
+                res.status(200).send({msg:e.message})
+            })
+        })
+        app.get("/testhuzaifa", logger, async (req, res) => {
+            User.find().then(async (result) => {
+                for (const user of result) {
+                    user.totalMeeting = await (await Meeting.where("createdBy").equals(user._id)).length
+                    user.save()
+                }
+            })
+
+            res.send({ msg: "DONE" })
         })
     } catch (e) {
         console.log(`22:The Error is:${e.message}`);
