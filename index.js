@@ -311,6 +311,11 @@ async function run() {
                 }
                 Meeting.aggregate([
                     {
+                        $match: {
+                            createdBy: id
+                        }
+                    },
+                    {
                         $group: {
                             _id: "$eventType",
                             count: { $sum: 1 }
@@ -329,24 +334,24 @@ async function run() {
         })
 
         app.get("/admin/users", logger, async (req, res) => {
-            User.find().select("name email createdAt role totalMeeting").then(async (result)=>{
+            User.find().select("name email createdAt role totalMeeting").then(async (result) => {
                 res.status(200).send(result)
             }).catch(e => {
-                res.status(200).send({msg:e.message})
+                res.status(200).send({ msg: e.message })
             })
         })
-        app.get("/admin/meetings",logger,async(req,res)=>{
-            Meeting.find().select("title duration eventType camera mic attendee createdAt").populate("createdBy","name").then(async (result)=>{
+        app.get("/admin/meetings", logger, async (req, res) => {
+            Meeting.find().select("title duration eventType camera mic attendee createdAt").populate("createdBy", "name").then(async (result) => {
                 res.status(200).send(result)
             }).catch(e => {
-                res.status(200).send({msg:e.message})
+                res.status(200).send({ msg: e.message })
             })
         })
-        app.get("/admin/attendee",logger,async(req,res)=>{
-            Attendee.find().select("name email createdAt").populate("event","title").then(async (result)=>{
+        app.get("/admin/attendee", logger, async (req, res) => {
+            Attendee.find().select("name email createdAt").populate("event", "title").then(async (result) => {
                 res.status(200).send(result)
             }).catch(e => {
-                res.status(200).send({msg:e.message})
+                res.status(200).send({ msg: e.message })
             })
         })
         app.get("/testhuzaifa", logger, async (req, res) => {
@@ -356,7 +361,6 @@ async function run() {
                     user.save()
                 }
             })
-
             res.send({ msg: "DONE" })
         })
     } catch (e) {
