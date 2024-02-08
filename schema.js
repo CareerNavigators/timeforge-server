@@ -118,7 +118,7 @@ meetingSchema.pre("save", function (next) {
     }
     next()
 })
-meetingSchema.pre("post", async function (doc) {
+meetingSchema.post("save", async function (doc) {
     try {
         const newNote=new Note({
             title:doc.title,
