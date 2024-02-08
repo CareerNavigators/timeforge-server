@@ -118,16 +118,32 @@ meetingSchema.pre("save", function (next) {
     }
     next()
 })
-meetingSchema.post('findOneAndDelete', async function (doc) {
+meetingSchema.pre("post", async function (doc) {
+    try {
+        const newNote=new Note({
+            title:doc.title,
+            createdBy:doc.createdBy,
+            meeting:doc._id
+        })
+        await newNote.save()
+    } catch (e) {
+        console.log(e.message);
+    }
+    next()
+})
+meetingSchema.post('findOneAndDelete', async function (doc,next) {
+    console.log(doc);
     try {
         User.findById(doc.createdBy).then(async (result) => {
             result.totalMeeting -= 1
             await result.save()
         })
-        Note.where("meeting").equals(doc.createdBy)
+        await Note.findOneAndDelete({meeting:doc._id,createdBy:doc.createdBy})
+        await Attendee.deleteMany({ meeting: doc._id })
     } catch (e) {
         console.log(e.message);
     }
+    next()
 
 });
 
