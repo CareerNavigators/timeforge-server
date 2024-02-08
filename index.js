@@ -4,7 +4,7 @@ const cors = require('cors');
 const mongo = require('mongoose');
 const { User, Meeting, Attendee, Note } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
-const { erroResponse } = require("./util")
+const { erroResponse, UpdateHelper } = require("./util")
 const app = express()
 const port = process.env.PORT || 5111
 app.use(cors());
@@ -65,17 +65,7 @@ async function run() {
             try {
                 let user = await User.findById(req.params.id);
                 if (user != null) {
-                    let modelKeys = Object.keys(User.schema.paths)
-                    for (const key of Object.keys(req.body)) {
-                        if (!modelKeys.includes(key)) {
-                            res.status(400).send({ msg: `'${key}' is not a valid key. Update failed.` })
-                            return
-                        } else {
-                            user[key] = req.body[key]
-                        }
-                    }
-                    let result = await user.save()
-                    res.status(202).send(result)
+                    UpdateHelper(user, req.body, res)
                 } else {
                     res.status(404).send({ msg: "User not found" })
                 }
@@ -181,27 +171,12 @@ async function run() {
         })
         app.patch("/meeting/:id", logger, emptyBodyChecker, async (req, res) => {
             try {
-                Meeting.findById(req.params.id).then(result => {
-                    let modelKeys = Object.keys(Meeting.schema.paths)
-                    console.log(modelKeys);
-                    for (const key of Object.keys(req.body)) {
-                        if (!modelKeys.includes(key)) {
-                            res.status(400).send({ msg: `'${key}' is not a valid key. Update failed.` })
-                            return
-                        } else {
-                            result[key] = req.body[key]
-                        }
-                    }
-                    result.save().then(result => {
-                        res.status(202).send(result)
-                    }).catch(e => {
-                        console.log(e);
-                        res.status(400).send({ msg: "Update Failed" })
-                    })
-                }).catch(e => {
-                    console.log(e);
-                    res.status(400).send("Meeting not found.")
-                })
+                let meeting = await Meeting.findById(req.params.id)
+                if (meeting != null) {
+                    UpdateHelper(meeting, req.body, res)
+                } else {
+                    res.status(400).send({ msg: "meeting not found" })
+                }
             } catch (error) {
                 erroResponse(res, error)
             }
@@ -270,7 +245,7 @@ async function run() {
             }
         })
         app.get("/note", logger, emptyQueryChecker, async (req, res) => {
-            if (req.query?.userid) {
+            if (req.query?.userid) { // all the notes for a user
                 Note.where('createdBy').equals(req.query?.userid).then(result => {
                     if (result.length != 0) {
                         res.status(200).send(result)
@@ -280,7 +255,7 @@ async function run() {
                 }).catch(e => {
                     erroResponse(res, e)
                 })
-            } else if (req.query?.noteid) {
+            } else if (req.query?.noteid) { // single note
                 Note.findById(noteid).then(result => {
                     res.status(200).send(result)
                 }).catch(e => {
@@ -296,6 +271,17 @@ async function run() {
                 })
             }
         })
+        app.patch("/note/:id", logger, emptyBodyChecker, async (req, res) => {
+            const id = req.params.id
+            let note = await Note.findById(id)
+            if (note != null) {
+                UpdateHelper(note, req.body, res)
+            } else {
+                res.status(400).send({ msg: "Note found" })
+            }
+        })
+        
+
         app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
             let id = req.query.id;
             let meeting = new Array();
@@ -332,7 +318,6 @@ async function run() {
                 res.status(200).send({ meeting, attendee, eventType, eventNumber, error: e.message })
             })
         })
-
         app.get("/admin/users", logger, async (req, res) => {
             User.find().select("name email createdAt role totalMeeting").then(async (result) => {
                 res.status(200).send(result)
@@ -355,16 +340,16 @@ async function run() {
             })
         })
         app.get("/testhuzaifa", logger, async (req, res) => {
-            User.find().then(async (result) => {
-                for (const user of result) {
-                    user.totalMeeting = await (await Meeting.where("createdBy").equals(user._id)).length
-                    user.save()
+            Attendee.find().then(attendees=>{
+                for (const attendee of attendees) {
+                    attendee.slot={200524:["9:30 PM"]}
+                    attendee.save()
                 }
             })
-            res.send({ msg: "DONE" })
-        })
+        res.send({msg:"DONE"})})
+        
     } catch (e) {
-        console.log(`22:The Error is:${e.message}`);
+        console.log(e);
         return
     }
 }

@@ -44,7 +44,8 @@ const userSchema = new mongo.Schema({
     },
     role: {
         type: String,
-        enum: ["User", "Pro", "Admin"]
+        enum: ["User", "Pro", "Admin","admin"],
+        default:"User"
     },
     totalMeeting: {
         type: Number,
@@ -99,36 +100,36 @@ const meetingSchema = new mongo.Schema({
         type: Number,
         default: 0,
     },
-    isNote: {
-        type: Boolean,
-        default: false,
-    }
 }, {
     timestamps: true,
 })
 meetingSchema.post("save", humanizeErrors)
 meetingSchema.post("update", humanizeErrors)
-meetingSchema.post("save", function (doc) {
+meetingSchema.pre("save", function (next) {
     try {
-        User.findById(doc.createdBy).then(async (result) => {
-            result.totalMeeting += 1
-            await result.save()
-        })
+        if (this.isNew) {
+            User.findById(this.createdBy).then(async (result) => {
+                result.totalMeeting += 1
+                await result.save()
+            })
+        }
     } catch (e) {
         console.log(e.message);
     }
+    next()
 })
-  meetingSchema.post('findOneAndDelete', async function(doc) {
+meetingSchema.post('findOneAndDelete', async function (doc) {
     try {
         User.findById(doc.createdBy).then(async (result) => {
             result.totalMeeting -= 1
             await result.save()
         })
+        Note.where("meeting").equals(doc.createdBy)
     } catch (e) {
         console.log(e.message);
     }
-    
-  });
+
+});
 
 
 const Meeting = mongo.model("Meeting", meetingSchema)
@@ -154,22 +155,27 @@ const attendeeSchema = new mongo.Schema({
         type: mongo.Schema.Types.Mixed,
         require: true,
     }
+}, {
+    timestamps: true,
 })
 
 attendeeSchema.index({ "email": 1, "event": 1 }, { "unique": true });
 attendeeSchema.post("save", humanizeErrors)
 attendeeSchema.post("update", humanizeErrors)
-attendeeSchema.post("save", async function (doc) {
+attendeeSchema.pre("save", async function (next) {
     try {
-        Meeting.findById(doc.event).then(async result => {
-            result.attendee += 1
-            await result.save()
-        })
+        if (this.isNew) {
+            Meeting.findById(this.event).then(async result => {
+                result.attendee += 1
+                await result.save()
+            })
+        }
     } catch (e) {
         console.log(`attendeeSchema:post:save:${e.message}`);
     }
+    next()
 })
-attendeeSchema.post('findOneAndDelete', async function(doc) {
+attendeeSchema.post('findOneAndDelete', async function (doc) {
     try {
         Meeting.findById(doc.event).then(async result => {
             result.attendee -= 1
@@ -178,8 +184,8 @@ attendeeSchema.post('findOneAndDelete', async function(doc) {
     } catch (e) {
         console.log(`attendeeSchema:post:findOneAndDelete:${e.message}`);
     }
-    
-  });
+
+});
 
 const Attendee = mongo.model("Attendee", attendeeSchema)
 const noteSchema = new mongo.Schema({
@@ -201,18 +207,8 @@ const noteSchema = new mongo.Schema({
         type: String,
         trim: true,
     }
-})
-noteSchema.post("save", async function (doc) {
-    try {
-        Meeting.findById(doc.event).then(async result => {
-            result.isNote = true
-            await result.save()
-        }).catch(e => {
-            console.log(`118:attendeeSchema:post:save:${e.message}`);
-        })
-    } catch (e) {
-        console.log(`121:attendeeSchema:post:save:${e.message}`);
-    }
+}, {
+    timestamps: true,
 })
 noteSchema.post("save", humanizeErrors)
 noteSchema.post("update", humanizeErrors)
