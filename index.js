@@ -336,7 +336,14 @@ async function run() {
             })
         })
         app.get("/admin/meetings",logger,async(req,res)=>{
-            Meeting.find().select("title duration eventType camera mic attendee createdAt").then(async (result)=>{
+            Meeting.find().select("title duration eventType camera mic attendee createdAt").populate("createdBy","name").then(async (result)=>{
+                res.status(200).send(result)
+            }).catch(e => {
+                res.status(200).send({msg:e.message})
+            })
+        })
+        app.get("/admin/attendee",logger,async(req,res)=>{
+            Attendee.find().select("name email createdAt").populate("event","title").then(async (result)=>{
                 res.status(200).send(result)
             }).catch(e => {
                 res.status(200).send({msg:e.message})
