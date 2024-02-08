@@ -134,10 +134,11 @@ meetingSchema.pre("post", async function (doc) {
 meetingSchema.post('findOneAndDelete', async function (doc,next) {
     console.log(doc);
     try {
-        User.findById(doc.createdBy).then(async (result) => {
-            result.totalMeeting -= 1
-            await result.save()
-        })
+        const user = await User.findById(doc.createdBy);
+        if (user) {
+            user.totalMeeting -=  1;
+            await user.save();
+        }
         await Note.findOneAndDelete({meeting:doc._id,createdBy:doc.createdBy})
         await Attendee.deleteMany({ meeting: doc._id })
     } catch (e) {
