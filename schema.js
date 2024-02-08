@@ -132,7 +132,6 @@ meetingSchema.post("save", async function (doc) {
     next()
 })
 meetingSchema.post('findOneAndDelete', async function (doc,next) {
-    console.log(doc);
     try {
         const user = await User.findById(doc.createdBy);
         if (user) {
