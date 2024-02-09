@@ -294,7 +294,7 @@ async function run() {
                         meeting.push(item.title)
                         attendee.push(item.attendee)
                     }
-                }
+                } 
                 Meeting.aggregate([
                     {
                         $match: {
@@ -340,12 +340,12 @@ async function run() {
             })
         })
         app.get("/testhuzaifa", logger, async (req, res) => {
-            Meeting.find().then(async meetings=>{
-                for (const meeting of meetings) {
-                    meeting.attendee=(await Attendee.where("event").equals(meeting._id)).length
-                    meeting.save()
-                }
-            })
+            // Note.find().then( async result=>{
+            //     for (const item of result) {
+            //         item.content="",
+            //         await item.save()
+            //     }
+            // })
         res.send({msg:"DONE"})})
         app.get("/home",logger,async(req,res)=>{
             Meeting.find().limit(4).select("-_id title duration attendee createdAt").then(meetings=>{

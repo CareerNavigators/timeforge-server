@@ -221,6 +221,7 @@ const noteSchema = new mongo.Schema({
     },
     content: {
         type: String,
+        default:"",
         trim: true,
     }
 }, {

@@ -34,7 +34,12 @@ async function UpdateHelper(doc, body, res) {
             }
         }
         let result = await doc.save()
-        res.status(202).send(result)
+        if (result?.content) {
+            res.status(202).send({msg:"Note Updated"})
+        }else{
+            res.status(202).send(result)
+
+        }
         return
     } catch (e) {
         erroResponse(res, e)
