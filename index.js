@@ -298,7 +298,7 @@ async function run() {
                 Meeting.aggregate([
                     {
                         $match: {
-                            createdBy: id
+                            createdBy: new mongo.Types.ObjectId(id)
                         }
                     },
                     {
