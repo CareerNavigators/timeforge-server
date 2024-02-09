@@ -129,7 +129,7 @@ meetingSchema.post("save", async function (doc) {
     } catch (e) {
         console.log(e.message);
     }
-    next()
+    
 })
 meetingSchema.post('findOneAndDelete', async function (doc,next) {
     try {

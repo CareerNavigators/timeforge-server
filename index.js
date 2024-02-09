@@ -340,10 +340,10 @@ async function run() {
             })
         })
         app.get("/testhuzaifa", logger, async (req, res) => {
-            Attendee.find().then(attendees=>{
-                for (const attendee of attendees) {
-                    attendee.slot={200524:["9:30 PM"]}
-                    attendee.save()
+            Meeting.find().then(async meetings=>{
+                for (const meeting of meetings) {
+                    meeting.attendee=(await Attendee.where("event").equals(meeting._id)).length
+                    meeting.save()
                 }
             })
         res.send({msg:"DONE"})})
