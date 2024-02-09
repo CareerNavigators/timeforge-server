@@ -347,7 +347,13 @@ async function run() {
                 }
             })
         res.send({msg:"DONE"})})
-        
+        app.get("/home",logger,async(req,res)=>{
+            Meeting.find().limit(4).select("-_id title duration attendee createdAt").then(meetings=>{
+                res.status(200).send(meetings)
+            }).catch(e=>{
+                erroResponse(res,e)
+            })
+        })
     } catch (e) {
         console.log(e);
         return
