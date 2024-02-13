@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express')
 const cors = require('cors');
 const mongo = require('mongoose');
+const admin = require("firebase-admin");
 const { User, Meeting, Attendee, Note } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 const { erroResponse, UpdateHelper } = require("./util")
@@ -11,7 +12,23 @@ app.use(cors());
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`
 mongo.connect(uri)
-
+// firebase admin keys
+const serviceAccount = {
+    type: process.env.TYPE,
+    project_id: process.env.PROJECT_ID,
+    private_key_id: process.env.PRIVATE_KEY_ID,
+    private_key: process.env.PRIVATE_KEY.replace(/\\n/g, "\n"),
+    client_email: process.env.CLIENT_EMAIL,
+    client_id: process.env.CLIENT_ID,
+    auth_uri: process.env.AUTH_URI,
+    token_uri: process.env.TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.CLIENT_X509_CERT_URL,
+    universe_domain: process.env.UNIVERSE_DOMAIN,
+  };
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
 async function run() {
     try {
         /**
@@ -354,6 +371,10 @@ async function run() {
                 erroResponse(res,e)
             })
         })
+        //TODO: user delete api
+        app.delete("/user/:id", async (req, res) => {
+            
+        });
     } catch (e) {
         console.log(e);
         return
