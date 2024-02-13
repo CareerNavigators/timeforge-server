@@ -29,6 +29,24 @@ const serviceAccount = {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
+//   delete user function
+function deleteUserByEmail(email) {
+    return admin
+      .auth()
+      .getUserByEmail(email)
+      .then((userData) => {
+        return admin
+          .auth()
+          .deleteUser(userData.uid)
+          .then(() => {
+            console.log(`Successfully deleted user with email: ${email}`);
+          });
+      })
+      .catch((error) => {
+        console.error(error);
+        throw error;
+      });
+  }
 async function run() {
     try {
         /**
@@ -297,8 +315,6 @@ async function run() {
                 res.status(400).send({ msg: "Note found" })
             }
         })
-        
-
         app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
             let id = req.query.id;
             let meeting = new Array();
@@ -371,10 +387,43 @@ async function run() {
                 erroResponse(res,e)
             })
         })
-        //TODO: user delete api
-        app.delete("/user/:id", async (req, res) => {
-            
+        /**
+        * Delete user
+        * 
+        * req.params:
+        *   email: Email address of the user to be deleted
+        * 
+        * res.send:
+        * * 200 - User deleted successfully
+        * !  400 - Invalid email address
+        * ?  404 - User not found
+        * !  500 - Internal server error
+        */
+
+        app.delete("/user/:email", async (req, res) => {
+            const userEmail = req.params.email;
+            try {
+                const userData = await admin.auth().getUserByEmail(userEmail);
+                if (!userData || !userData.uid) {
+                    throw new Error("User data or UID not found.");
+                }
+                await admin.auth().deleteUser(userData.uid);
+                console.log(`deleted user with email: ${userEmail}`);
+                res.status(200).send(`User with email ${userEmail} has been successfully deleted.`);
+            } catch (error) {
+                console.error(`Error:${error.message}`);
+                if (error.code === "auth/invalid-email") {
+                    res.status(400).send({ error: 'Invalid email address.' });
+                } else if (error.code === "auth/user-not-found") {
+                    res.status(404).send({ error: 'User not found.' });
+                } else if (error.code === "auth/invalid-uid") {
+                    res.status(400).send({ error: 'Invalid user ID.' });
+                } else {
+                    res.status(500).send({ error: 'Error deleting user.' });
+                }
+            }
         });
+        
     } catch (e) {
         console.log(e);
         return
