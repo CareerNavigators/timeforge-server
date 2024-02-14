@@ -4,13 +4,14 @@ const cors = require('cors');
 const mongo = require('mongoose');
 const { User, Meeting, Attendee, Note } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
-const { erroResponse, UpdateHelper } = require("./util")
+const { erroResponse, UpdateHelper, DeleteUser } = require("./util")
 const app = express()
 const port = process.env.PORT || 5111
 app.use(cors());
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`
 mongo.connect(uri)
+
 
 async function run() {
     try {
@@ -114,6 +115,14 @@ async function run() {
                 res.status(400).send({ msg: "Query invalid" })
             }
         });
+        app.delete("/user/:id",logger,async(req,res)=>{
+            const result= await DeleteUser(req.params.id)
+            if (!result?.error) {
+                res.status(200).send(result)
+            }else{
+                res.status(400).send(result)
+            }
+        })
         /**
          * create event
          * req.body sample:
@@ -280,7 +289,7 @@ async function run() {
                 res.status(400).send({ msg: "Note found" })
             }
         })
-        
+
 
         app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
             let id = req.query.id;
@@ -294,7 +303,7 @@ async function run() {
                         meeting.push(item.title)
                         attendee.push(item.attendee)
                     }
-                } 
+                }
                 Meeting.aggregate([
                     {
                         $match: {
@@ -346,14 +355,18 @@ async function run() {
             //         await item.save()
             //     }
             // })
-        res.send({msg:"DONE"})})
-        app.get("/home",logger,async(req,res)=>{
-            Meeting.find().limit(4).select("-_id title duration attendee createdAt").then(meetings=>{
+            res.send({ msg: "DONE" })
+        })
+
+        app.get("/home", logger, async (req, res) => {
+            Meeting.find().limit(4).select("-_id title duration attendee createdAt").then(meetings => {
                 res.status(200).send(meetings)
-            }).catch(e=>{
-                erroResponse(res,e)
+            }).catch(e => {
+                erroResponse(res, e)
             })
         })
+
+        
     } catch (e) {
         console.log(e);
         return
@@ -364,5 +377,4 @@ run().catch(console.dir);
 
 app.get('/', (req, res) => { res.send("Backend Running") });
 app.listen(port, () => { console.log(`Server Started at ${port}`) });
-
 

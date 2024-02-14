@@ -1,6 +1,5 @@
 const mongo = require("mongoose")
 const humanizeErrors = require('mongoose-error-humanizer')
-const { erroResponse } = require("./util")
 const userSchema = new mongo.Schema({
     name: {
         type: mongo.Schema.Types.String,
