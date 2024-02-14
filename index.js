@@ -146,10 +146,13 @@ async function run() {
         */
         app.delete("/user/:email", async (req, res) => {
             const userEmail = req.params.email;
+            console.log("userEmail", userEmail);
             try {               
                 const userDataDB = await User.findOne({ email: userEmail }).lean();
                 const id = userDataDB?._id?.toString();
+                console.log("id", id);
                 const userData = await admin.auth().getUserByEmail(userEmail);
+                console.log("userData", userData);
                 if (!userData || !userData.uid || !id) {
                     return res.status(404).send("User data not found."); 
                 }
