@@ -1,5 +1,5 @@
-const { Mongoose } = require("mongoose");
-
+const { User, Meeting, Note, Attendee } = require("./schema");
+const mongo = require('mongoose');
 /**
  * sends error with error server side any other un handel error.
  * 
@@ -35,10 +35,9 @@ async function UpdateHelper(doc, body, res) {
         }
         let result = await doc.save()
         if (result?.content) {
-            res.status(202).send({msg:"Note Updated"})
-        }else{
+            res.status(202).send({ msg: "Note Updated" })
+        } else {
             res.status(202).send(result)
-
         }
         return
     } catch (e) {
@@ -47,6 +46,49 @@ async function UpdateHelper(doc, body, res) {
     }
 }
 
+/**
+ * Delete the user with given id. It also delete all the data associate with the user
+ * @param {string} id - user id 
+ * 
+ * @returns
+ * All the delete result or error message
+ */
+async function DeleteUser(id) {
+    try {
+        const userResult = await User.findByIdAndDelete(id)
+        const allResult = await DeleteMeeting(id)
+        let response;
+        if (userResult?._id) {
+            response={msg:"User Deleted Successfully"}
+        }
+        return { ...allResult, userResult }
+    } catch (e) {
+        return { error: true, msg: e.message }
+    }
+
+}
+
+/**
+ * This function take user id then delete all the meeting associate with the user
+ * @param {string} id - user id
+ * 
+ * @returns
+ * All the delete result or error message
+ */
+async function DeleteMeeting(id) {
+    try {
+        const meetings = await Meeting.where("createdBy").equals(id)
+        for (const meeting of meetings) {
+             await Note.deleteMany({ meeting: new mongo.Types.ObjectId(meeting._id) })
+             await Attendee.deleteMany({ event: new mongo.Types.ObjectId(meeting._id) })
+        }
+        await Meeting.deleteMany({ createdBy: new mongo.Types.ObjectId(id) })
+        return {msg:"Meeting, Note and Attendee Delete successfully" }
+    } catch (e) {
+        return { error: true, msg: e.message }
+    }
+
+}
 
 
-module.exports = { erroResponse, UpdateHelper }
+module.exports = { erroResponse, UpdateHelper, DeleteUser, DeleteMeeting }
