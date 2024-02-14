@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express')
 const cors = require('cors');
 const mongo = require('mongoose');
+const admin = require("firebase-admin");
 const { User, Meeting, Attendee, Note } = require("./schema")
 const { logger, checkBody, emptyBodyChecker, emptyQueryChecker } = require("./middleware")
 const { erroResponse, UpdateHelper, DeleteUser } = require("./util")
@@ -12,7 +13,23 @@ app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`
 mongo.connect(uri)
 
-
+// firebase admin keys
+const serviceAccount = {
+    type: process.env.TYPE,
+    project_id: process.env.PROJECT_ID,
+    private_key_id: process.env.PRIVATE_KEY_ID,
+    private_key: process.env.PRIVATE_KEY.replace(/\\n/g, "\n"),
+    client_email: process.env.CLIENT_EMAIL,
+    client_id: process.env.CLIENT_ID,
+    auth_uri: process.env.AUTH_URI,
+    token_uri: process.env.TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.CLIENT_X509_CERT_URL,
+    universe_domain: process.env.UNIVERSE_DOMAIN,
+  };
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
 async function run() {
     try {
         /**
@@ -115,14 +132,48 @@ async function run() {
                 res.status(400).send({ msg: "Query invalid" })
             }
         });
-        app.delete("/user/:id",logger,async(req,res)=>{
-            const result= await DeleteUser(req.params.id)
-            if (!result?.error) {
-                res.status(200).send(result)
-            }else{
-                res.status(400).send(result)
+        /**
+        * Delete user
+        * 
+        * req.params:
+        *   email: Email address of the user to be deleted
+        * 
+        * res.send:
+        * *  200 - User deleted successfully
+        * !  400 - Invalid email address
+        * ?  404 - User not found
+        * !  500 - Internal server error
+        */
+        app.delete("/user/:email", async (req, res) => {
+            const userEmail = req.params.email;
+            try {               
+                const userDataDB = await User.findOne({ email: userEmail }).lean();
+                const id = userDataDB?._id?.toString();
+                const userData = await admin.auth().getUserByEmail(userEmail);
+                if (!userData || !userData.uid || !id) {
+                    return res.status(404).send("User data not found."); 
+                }
+                const result = await DeleteUser(id);
+                if (!result?.error) {
+                    await admin.auth().deleteUser(userData.uid);
+                    console.log(`deleted user with email: ${userEmail}`);
+                    res.status(200).send(`User with email ${userEmail} has been successfully deleted.`);
+                } else {
+                    res.status(400).send(result);
+                }
+            } catch (error) {
+                console.error(`Error: ${error.message}`);
+                if (error.code === "auth/invalid-email") {
+                    res.status(400).send({ error: 'Invalid email address.' });
+                } else if (error.code === "auth/user-not-found") {
+                    res.status(404).send({ error: 'User not found.' });
+                } else if (error.code === "auth/invalid-uid") {
+                    res.status(400).send({ error: 'Invalid user ID.' });
+                } else {
+                    res.status(500).send({ error: 'Error deleting user.' });
+                }
             }
-        })
+        }); 
         /**
          * create event
          * req.body sample:
@@ -289,8 +340,6 @@ async function run() {
                 res.status(400).send({ msg: "Note found" })
             }
         })
-
-
         app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
             let id = req.query.id;
             let meeting = new Array();
@@ -357,7 +406,6 @@ async function run() {
             // })
             res.send({ msg: "DONE" })
         })
-
         app.get("/home", logger, async (req, res) => {
             Meeting.find().limit(4).select("-_id title duration attendee createdAt").then(meetings => {
                 res.status(200).send(meetings)
@@ -365,8 +413,6 @@ async function run() {
                 erroResponse(res, e)
             })
         })
-
-        
     } catch (e) {
         console.log(e);
         return
