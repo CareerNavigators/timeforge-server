@@ -288,6 +288,19 @@ async function run() {
                 erroResponse(res, error)
             }
         })
+        app.patch("/attendee/:id",logger,async (req,res)=>{
+            try {
+                const attendee=await Attendee.findById(req.params.id)
+                if (attendee!=null) {
+                    UpdateHelper(attendee,req.body,res)
+                }else{
+                    res.status(400).send({msg:"Update failed"})
+                }
+            } catch (error) {
+                erroResponse(res,error)
+            }
+
+        })
         app.delete("/attendee/:id", logger, async (req, res) => {
             Attendee.findByIdAndDelete(req.params.id).then(result => {
                 res.status(200).send({ msg: `${result.name} Delete successfully` })

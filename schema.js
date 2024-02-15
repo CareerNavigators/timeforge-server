@@ -43,8 +43,8 @@ const userSchema = new mongo.Schema({
     },
     role: {
         type: String,
-        enum: ["User", "Pro", "Admin","admin"],
-        default:"User"
+        enum: ["User", "Pro", "Admin", "admin"],
+        default: "User"
     },
     totalMeeting: {
         type: Number,
@@ -119,25 +119,25 @@ meetingSchema.pre("save", function (next) {
 })
 meetingSchema.post("save", async function (doc) {
     try {
-        const newNote=new Note({
-            title:doc.title,
-            createdBy:doc.createdBy,
-            meeting:doc._id
+        const newNote = new Note({
+            title: doc.title,
+            createdBy: doc.createdBy,
+            meeting: doc._id
         })
         await newNote.save()
     } catch (e) {
         console.log(e.message);
     }
-    
+
 })
-meetingSchema.post('findOneAndDelete', async function (doc,next) {
+meetingSchema.post('findOneAndDelete', async function (doc, next) {
     try {
         const user = await User.findById(doc.createdBy);
         if (user) {
-            user.totalMeeting -=  1;
+            user.totalMeeting -= 1;
             await user.save();
         }
-        await Note.findOneAndDelete({meeting:doc._id,createdBy:doc.createdBy})
+        await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy })
         await Attendee.deleteMany({ meeting: doc._id })
     } catch (e) {
         console.log(e.message);
@@ -181,8 +181,10 @@ attendeeSchema.pre("save", async function (next) {
     try {
         if (this.isNew) {
             Meeting.findById(this.event).then(async result => {
-                result.attendee += 1
-                await result.save()
+                if (result) {
+                    result.attendee += 1
+                    await result.save()
+                }
             })
         }
     } catch (e) {
@@ -193,8 +195,11 @@ attendeeSchema.pre("save", async function (next) {
 attendeeSchema.post('findOneAndDelete', async function (doc) {
     try {
         Meeting.findById(doc.event).then(async result => {
-            result.attendee -= 1
-            await result.save()
+            if (result) {
+                result.attendee -= 1
+                await result.save()
+            }
+
         })
     } catch (e) {
         console.log(`attendeeSchema:post:findOneAndDelete:${e.message}`);
@@ -220,7 +225,7 @@ const noteSchema = new mongo.Schema({
     },
     content: {
         type: String,
-        default:"",
+        default: "",
         trim: true,
     }
 }, {
