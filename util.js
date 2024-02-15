@@ -75,7 +75,7 @@ async function DeleteUser(id) {
  * @returns
  * All the delete result or error message
  */
-async function DeleteMeeting(id) {
+async function DeleteMeeting(id,updateUser=false) {
     try {
         const meetings = await Meeting.where("createdBy").equals(id)
         for (const meeting of meetings) {
@@ -83,6 +83,9 @@ async function DeleteMeeting(id) {
              await Attendee.deleteMany({ event: new mongo.Types.ObjectId(meeting._id) })
         }
         await Meeting.deleteMany({ createdBy: new mongo.Types.ObjectId(id) })
+        if (updateUser) {
+            await User.findByIdAndUpdate(id,{totalMeeting:0})
+        }
         return {msg:"Meeting, Note and Attendee Delete successfully" }
     } catch (e) {
         return { error: true, msg: e.message }

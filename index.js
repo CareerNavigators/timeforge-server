@@ -335,7 +335,7 @@ async function run() {
                     erroResponse(res, e)
                 })
             } else if (req.query?.meetingid) {
-                Note.where("meeting").equals(meetingid).then(result => {
+                Note.where("meeting").equals(req.query?.meetingid).then(result => {
                     if (result.length != 0) {
                         res.status(200).send(result[0])
                     } else {
@@ -350,7 +350,7 @@ async function run() {
             if (note != null) {
                 UpdateHelper(note, req.body, res)
             } else {
-                res.status(400).send({ msg: "Note found" })
+                res.status(400).send({ msg: "Note not found" })
             }
         })
         app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {

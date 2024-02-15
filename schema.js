@@ -108,11 +108,13 @@ meetingSchema.pre("save", function (next) {
     try {
         if (this.isNew) {
             User.findById(this.createdBy).then(async (result) => {
-                result.totalMeeting += 1
+                result.totalMeeting = (await Meeting.where("createdBy").equals(this.createdBy)).length;
                 await result.save()
             })
         }
+        next()
     } catch (e) {
+        next()
         console.log(e.message);
     }
     next()
@@ -134,12 +136,15 @@ meetingSchema.post('findOneAndDelete', async function (doc, next) {
     try {
         const user = await User.findById(doc.createdBy);
         if (user) {
-            user.totalMeeting -= 1;
+            user.totalMeeting = (await Meeting.where("createdBy").equals(doc.createdBy)).length;
+            console.log(user.totalMeeting);
             await user.save();
         }
         await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy })
         await Attendee.deleteMany({ meeting: doc._id })
+        next()
     } catch (e) {
+        next()
         console.log(e.message);
     }
     next()
@@ -187,7 +192,9 @@ attendeeSchema.pre("save", async function (next) {
                 }
             })
         }
+        next()
     } catch (e) {
+        next()
         console.log(`attendeeSchema:post:save:${e.message}`);
     }
     next()
