@@ -411,12 +411,20 @@ async function run() {
             })
         })
         app.get("/testhuzaifa", logger, async (req, res) => {
-            // Note.find().then( async result=>{
-            //     for (const item of result) {
-            //         item.content="",
-            //         await item.save()
-            //     }
-            // })
+            let eventid="65cf83297c14f01eeb29a32d"
+            let name=["Md. Huzaifa","Md. Nayok","Md. KholNayok"]
+            let email=["mdhuzaifa@gmail.com","mdnayouk@gmail.com","mdkholnayouk@gmail.com"]
+            for (let index = 0; index < name.length; index++) {
+                const newAtten={
+                    name:name[index],
+                    email:email[index],
+                    event:eventid,
+                    slot:{"020224":["5:00 PM"]}
+                }
+                const atten=new Attendee(newAtten)
+                await atten.save()
+                
+            }
             res.send({ msg: "DONE" })
         })
         app.get("/home", logger, async (req, res) => {

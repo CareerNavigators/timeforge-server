@@ -182,32 +182,21 @@ const attendeeSchema = new mongo.Schema({
 attendeeSchema.index({ "email": 1, "event": 1 }, { "unique": true });
 attendeeSchema.post("save", humanizeErrors)
 attendeeSchema.post("update", humanizeErrors)
-attendeeSchema.pre("save", async function (next) {
+attendeeSchema.post("save",async function (doc) {
     try {
-        if (this.isNew) {
-            Meeting.findById(this.event).then(async result => {
-                if (result) {
-                    result.attendee += 1
-                    await result.save()
-                }
-            })
-        }
-        next()
-    } catch (e) {
-        next()
-        console.log(`attendeeSchema:post:save:${e.message}`);
+        const meeting=await Meeting.findById(doc.event)
+        meeting.attendee= (await Attendee.where("event").equals(doc.event)).length
+        await meeting.save()
+    } catch (error) {
+        console.log(error);
     }
-    next()
+
 })
 attendeeSchema.post('findOneAndDelete', async function (doc) {
     try {
-        Meeting.findById(doc.event).then(async result => {
-            if (result) {
-                result.attendee -= 1
-                await result.save()
-            }
-
-        })
+        const meeting=await Meeting.findById(doc.event)
+        meeting.attendee= (await Attendee.where("event").equals(doc.event)).length
+        await meeting.save()
     } catch (e) {
         console.log(`attendeeSchema:post:findOneAndDelete:${e.message}`);
     }
