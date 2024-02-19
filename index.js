@@ -488,7 +488,6 @@ async function run() {
           .skip((page - 1) * limit)
           .limit(limit);
         res.status(200).send(users);
-        console.log(users?.length);
       } catch (e) {
         res.status(500).send({ msg: e.message });
       }
