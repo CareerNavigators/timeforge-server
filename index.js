@@ -479,6 +479,7 @@ async function run() {
           });
         });
     });
+    // TODO: add pagination
     app.get("/admin/users", logger, async (req, res) => {
       User.find()
         .select("name email createdAt role totalMeeting")
@@ -489,6 +490,7 @@ async function run() {
           res.status(200).send({ msg: e.message });
         });
     });
+    // TODO: add pagination
     app.get("/admin/meetings", logger, async (req, res) => {
       Meeting.find()
         .select("title duration eventType camera mic attendee createdAt")
@@ -500,6 +502,7 @@ async function run() {
           res.status(200).send({ msg: e.message });
         });
     });
+    // TODO: add pagination
     app.get("/admin/attendee", logger, async (req, res) => {
       Attendee.find()
         .select("name email createdAt")
@@ -515,11 +518,7 @@ async function run() {
       "/sendmail",
       logger,
       emptyBodyChecker,
-      checkBody([
-        "attendeeEmail",
-        "subject",
-        "html"
-      ]),
+      checkBody(["attendeeEmail", "subject", "html"]),
       async (req, res) => {
         let message = {
           from: process.env.MAIL,
@@ -531,11 +530,11 @@ async function run() {
           .sendMail(message)
           .then((result) => {
             console.log(result);
-            res.status(200).send({msg:"Mail Sent"})
+            res.status(200).send({ msg: "Mail Sent" });
           })
           .catch((e) => {
             console.log(e);
-            res.status(400).send({msg:"Mail Sent Failed"})
+            res.status(400).send({ msg: "Mail Sent Failed" });
           });
       }
     );
