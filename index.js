@@ -479,17 +479,21 @@ async function run() {
           });
         });
     });
-    // TODO: add pagination
     app.get("/admin/users", logger, async (req, res) => {
-      User.find()
-        .select("name email createdAt role totalMeeting")
-        .then(async (result) => {
-          res.status(200).send(result);
-        })
-        .catch((e) => {
-          res.status(200).send({ msg: e.message });
-        });
+      const page = req.query.page || 1;
+      const limit = req.query.limit || 15;
+      try {
+        const users = await User.find()
+          .select("name email createdAt role totalMeeting")
+          .skip((page - 1) * limit)
+          .limit(limit);
+        res.status(200).send(users);
+        console.log(users?.length);
+      } catch (e) {
+        res.status(500).send({ msg: e.message });
+      }
     });
+
     // TODO: add pagination
     app.get("/admin/meetings", logger, async (req, res) => {
       Meeting.find()
