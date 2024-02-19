@@ -506,17 +506,19 @@ async function run() {
         res.status(200).send({ msg: e.message });
       }
     });
-    // TODO: add pagination
     app.get("/admin/attendee", logger, async (req, res) => {
-      Attendee.find()
-        .select("name email createdAt")
-        .populate("event", "title")
-        .then(async (result) => {
-          res.status(200).send(result);
-        })
-        .catch((e) => {
-          res.status(200).send({ msg: e.message });
-        });
+      const page = req.query.page || 1;
+      const limit = req.query.limit || 15;
+      try {
+        const attendeeData = await Attendee.find()
+          .select("name email createdAt")
+          .populate("event", "title")
+          .skip((page - 1) * limit)
+          .limit(limit);
+        res.status(200).send(attendeeData);
+      } catch (e) {
+        res.status(200).send({ msg: e.message });
+      }
     });
     app.post(
       "/sendmail",
