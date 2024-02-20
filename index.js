@@ -4,6 +4,9 @@ const cors = require("cors");
 const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const dayjs = require("dayjs");
+const customParseFormat = require('dayjs/plugin/customParseFormat')
+dayjs.extend(customParseFormat)
 const { User, Meeting, Attendee, Note } = require("./schema");
 const {
   logger,
@@ -228,8 +231,21 @@ async function run() {
         "eventType",
         "camera",
         "mic",
+        "offline"
       ]),
       async (req, res) => {
+        let expTime;
+        if (Object.keys(req.body.events).length!=0) {
+          let dateKeys=Object.keys(req.body.events)
+          expTime=dayjs(dateKeys[0],"DDMMYY")
+          for (const event of dateKeys) {
+            let t_expTime=dayjs(event,"DDMMYY")
+            if (t_expTime.isAfter(expTime)) {
+              expTime=t_expTime
+            }
+          }
+          req.body["expDate"]=expTime.format("DD-MM-YYYY")
+        }
         const meeting = new Meeting(req.body);
         meeting
           .save()

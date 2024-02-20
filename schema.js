@@ -49,7 +49,8 @@ const userSchema = new mongo.Schema({
     totalMeeting: {
         type: Number,
         default: 0
-    }
+    },
+    
 }, {
     timestamps: true,
 })
@@ -99,6 +100,14 @@ const meetingSchema = new mongo.Schema({
         type: Number,
         default: 0,
     },
+    expDate:{
+        type:String,
+        default:"",
+    },
+    offline: {
+        type: Boolean,
+        default: false,
+    },
 }, {
     timestamps: true,
 })
@@ -137,15 +146,15 @@ meetingSchema.post('findOneAndDelete', async function (doc, next) {
         const user = await User.findById(doc.createdBy);
         if (user) {
             user.totalMeeting = (await Meeting.where("createdBy").equals(doc.createdBy)).length;
-            console.log(user.totalMeeting);
             await user.save();
         }
         await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy })
         await Attendee.deleteMany({ meeting: doc._id })
+        console.log("findOneAndDelete");
         next()
     } catch (e) {
-        next()
         console.log(e.message);
+        next()
     }
     next()
 
