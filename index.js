@@ -496,44 +496,52 @@ async function run() {
         });
     });
     app.get("/admin/users", logger, async (req, res) => {
-      const page = req.query.page || 1;
-      const limit = req.query.limit || 15;
       try {
-        const users = await User.find()
-          .select("name email createdAt role totalMeeting")
-          .skip((page - 1) * limit)
-          .limit(limit);
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "name email createdAt role totalMeeting",
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+
+        const users = await User.paginate({}, options);
+
         res.status(200).send(users);
       } catch (e) {
         res.status(500).send({ msg: e.message });
       }
     });
     app.get("/admin/meetings", logger, async (req, res) => {
-      const page = req.query.page || 1;
-      const limit = req.query.limit || 15;
       try {
-        const meetingsData = await Meeting.find()
-          .select("title duration eventType camera mic attendee createdAt")
-          .populate("createdBy", "name")
-          .skip((page - 1) * limit)
-          .limit(limit);
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "title duration eventType camera mic attendee createdAt",
+          populate: { path: "createdBy", select: "name" },
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+        const meetingsData = await Meeting.paginate({}, options);
+
         res.status(200).send(meetingsData);
       } catch (e) {
-        res.status(200).send({ msg: e.message });
+        res.status(500).send({ msg: e.message });
       }
     });
     app.get("/admin/attendee", logger, async (req, res) => {
-      const page = req.query.page || 1;
-      const limit = req.query.limit || 15;
       try {
-        const attendeeData = await Attendee.find()
-          .select("name email createdAt")
-          .populate("event", "title")
-          .skip((page - 1) * limit)
-          .limit(limit);
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "name email createdAt",
+          populate: { path: "event", select: "title" },
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+
+        const attendeeData = await Attendee.paginate({}, options);
+
         res.status(200).send(attendeeData);
       } catch (e) {
-        res.status(200).send({ msg: e.message });
+        res.status(500).send({ msg: e.message });
       }
     });
     app.post(
