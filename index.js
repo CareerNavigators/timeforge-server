@@ -373,7 +373,7 @@ async function run() {
         if (attendee != null) {
           UpdateHelper(attendee, req.body, res);
         } else {
-          res.status(400).send({ msg: "Update failed" });
+          res.status(400).send({ msg: "Attendee information update failed!!" });
         }
       } catch (error) {
         erroResponse(res, error);
@@ -383,7 +383,7 @@ async function run() {
     app.delete("/attendee/:id", logger, async (req, res) => {
       Attendee.findByIdAndDelete(req.params.id)
         .then((result) => {
-          res.status(200).send({ msg: `${result.name} Delete successfully` });
+          res.status(200).send({ msg: `${result.name} deleted successfully` });
         })
         .catch((e) => {
           res.status(400).send({ msg: e.message });
