@@ -379,10 +379,10 @@ async function run() {
         erroResponse(res, error);
       }
     });
-
-
-
-
+    // delete request
+    app.delete("/attendee/:id", logger, async (req, res) => {
+      
+    });
     // Tanzil Rayhan - attendee api creation
 
     app.post(
