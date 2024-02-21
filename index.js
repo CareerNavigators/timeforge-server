@@ -235,16 +235,16 @@ async function run() {
       ]),
       async (req, res) => {
         let expTime;
-        if (Object.keys(req.body.events).length!=0) {
-          let dateKeys=Object.keys(req.body.events)
-          expTime=dayjs(dateKeys[0],"DDMMYY")
+        if (Object.keys(req.body.events).length != 0) {
+          let dateKeys = Object.keys(req.body.events)
+          expTime = dayjs(dateKeys[0], "DDMMYY")
           for (const event of dateKeys) {
-            let t_expTime=dayjs(event,"DDMMYY")
+            let t_expTime = dayjs(event, "DDMMYY")
             if (t_expTime.isAfter(expTime)) {
-              expTime=t_expTime
+              expTime = t_expTime
             }
           }
-          req.body["expDate"]=expTime.format("DD-MM-YYYY")
+          req.body["expDate"] = expTime.format("DD-MM-YYYY")
         }
         const meeting = new Meeting(req.body);
         meeting
@@ -320,6 +320,8 @@ async function run() {
         erroResponse(res, error);
       }
     });
+
+    // Tanzil Rayhan - attendee api creation
     app.post(
       "/attendee",
       logger,
@@ -327,62 +329,15 @@ async function run() {
       checkBody(["name", "email", "event", "slot"]),
       async (req, res) => {
         try {
-          const attendee = new Attendee(req.body);
-          attendee
-            .save()
-            .then((result) => {
-              res.status(201).send(result);
-            })
-            .catch((e) => {
-              if (e.code == 11000) {
-                res.status(400).send({
-                  msg: `${req.body.email} already in attendee list for this event.`,
-                });
-              } else {
-                res.status(400).send({ msg: e.message });
-              }
-            });
+          
         } catch (e) {
           erroResponse(res, e);
         }
       }
     );
-    app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
-      try {
-        Attendee.where("event")
-          .equals(req.query.id)
-          .then((result) => {
-            if (result.length != 0) {
-              res.status(200).send(result);
-            } else {
-              res.status(400).send({ msg: "No attendee found." });
-            }
-          });
-      } catch (error) {
-        erroResponse(res, error);
-      }
-    });
-    app.patch("/attendee/:id", logger, async (req, res) => {
-      try {
-        const attendee = await Attendee.findById(req.params.id);
-        if (attendee != null) {
-          UpdateHelper(attendee, req.body, res);
-        } else {
-          res.status(400).send({ msg: "Update failed" });
-        }
-      } catch (error) {
-        erroResponse(res, error);
-      }
-    });
-    app.delete("/attendee/:id", logger, async (req, res) => {
-      Attendee.findByIdAndDelete(req.params.id)
-        .then((result) => {
-          res.status(200).send({ msg: `${result.name} Delete successfully` });
-        })
-        .catch((e) => {
-          res.status(400).send({ msg: e.message });
-        });
-    });
+
+    // Tanzil Rayhan - attendee api creation
+
     app.post(
       "/note",
       logger,
@@ -544,6 +499,7 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
+
     app.post(
       "/sendmail",
       logger,
