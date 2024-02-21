@@ -353,11 +353,20 @@ async function run() {
     // get request
     app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
       try {
-        
+        Attendee.where("event")
+          .equals(req.query.id)
+          .then((result) => {
+            if (result.length != 0) {
+              res.status(200).send(result);
+            } else {
+              res.status(400).send({ msg: "No attendee found." });
+            }
+          });
       } catch (error) {
         erroResponse(res, error);
       }
     });
+
 
 
 
