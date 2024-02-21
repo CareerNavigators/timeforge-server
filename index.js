@@ -369,7 +369,12 @@ async function run() {
     // update request
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
-        
+        const attendee = await Attendee.findById(req.params.id);
+        if (attendee != null) {
+          UpdateHelper(attendee, req.body, res);
+        } else {
+          res.status(400).send({ msg: "Update failed" });
+        }
       } catch (error) {
         erroResponse(res, error);
       }
