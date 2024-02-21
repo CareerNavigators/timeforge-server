@@ -237,16 +237,16 @@ async function run() {
       ]),
       async (req, res) => {
         let expTime;
-        if (Object.keys(req.body.events).length!=0) {
-          let dateKeys=Object.keys(req.body.events)
-          expTime=dayjs(dateKeys[0],"DDMMYY")
+        if (Object.keys(req.body.events).length != 0) {
+          let dateKeys = Object.keys(req.body.events)
+          expTime = dayjs(dateKeys[0], "DDMMYY")
           for (const event of dateKeys) {
-            let t_expTime=dayjs(event,"DDMMYY")
+            let t_expTime = dayjs(event, "DDMMYY")
             if (t_expTime.isAfter(expTime)) {
-              expTime=t_expTime
+              expTime = t_expTime
             }
           }
-          req.body["expDate"]=expTime.format("DD-MM-YYYY")
+          req.body["expDate"] = expTime.format("DD-MM-YYYY")
         }
         const meeting = new Meeting(req.body);
         meeting
@@ -322,6 +322,9 @@ async function run() {
         erroResponse(res, error);
       }
     });
+
+    // Tanzil Rayhan - attendee api creation
+    // post request
     app.post(
       "/attendee",
       logger,
@@ -349,6 +352,7 @@ async function run() {
         }
       }
     );
+    // get request
     app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
       try {
         Attendee.where("event")
@@ -364,27 +368,31 @@ async function run() {
         erroResponse(res, error);
       }
     });
+    // update request
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
         if (attendee != null) {
           UpdateHelper(attendee, req.body, res);
         } else {
-          res.status(400).send({ msg: "Update failed" });
+          res.status(400).send({ msg: "Attendee information update failed!!" });
         }
       } catch (error) {
         erroResponse(res, error);
       }
     });
+    // delete request
     app.delete("/attendee/:id", logger, async (req, res) => {
       Attendee.findByIdAndDelete(req.params.id)
         .then((result) => {
-          res.status(200).send({ msg: `${result.name} Delete successfully` });
+          res.status(200).send({ msg: `${result.name} deleted successfully` });
         })
         .catch((e) => {
           res.status(400).send({ msg: e.message });
         });
     });
+    // Tanzil Rayhan - attendee api creation
+
     app.post(
       "/note",
       logger,
@@ -546,6 +554,7 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
+
     app.post(
       "/sendmail",
       logger,
