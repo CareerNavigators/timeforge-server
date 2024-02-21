@@ -114,7 +114,7 @@ const meetingSchema = new mongo.Schema(
     },
     offline: {
         type: Boolean,
-        default: false,
+        default: true,
     },
 }, {
     timestamps: true,
