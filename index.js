@@ -366,6 +366,14 @@ async function run() {
         erroResponse(res, error);
       }
     });
+    // update request
+    app.patch("/attendee/:id", logger, async (req, res) => {
+      try {
+        
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
 
 
 
