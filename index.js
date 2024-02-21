@@ -381,7 +381,13 @@ async function run() {
     });
     // delete request
     app.delete("/attendee/:id", logger, async (req, res) => {
-      
+      Attendee.findByIdAndDelete(req.params.id)
+        .then((result) => {
+          res.status(200).send({ msg: `${result.name} Delete successfully` });
+        })
+        .catch((e) => {
+          res.status(400).send({ msg: e.message });
+        });
     });
     // Tanzil Rayhan - attendee api creation
 
