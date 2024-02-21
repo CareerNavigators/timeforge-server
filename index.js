@@ -322,6 +322,7 @@ async function run() {
     });
 
     // Tanzil Rayhan - attendee api creation
+    // post request
     app.post(
       "/attendee",
       logger,
@@ -349,6 +350,15 @@ async function run() {
         }
       }
     );
+    // get request
+    app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
+
 
 
     // Tanzil Rayhan - attendee api creation
