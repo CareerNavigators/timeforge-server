@@ -231,7 +231,9 @@ async function run() {
         "eventType",
         "camera",
         "mic",
-        "offline"
+        "offline",
+        "startTime",
+        "endTime"
       ]),
       async (req, res) => {
         let expTime;

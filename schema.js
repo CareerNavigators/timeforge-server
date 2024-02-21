@@ -116,6 +116,14 @@ const meetingSchema = new mongo.Schema(
         type: Boolean,
         default: true,
     },
+    startTime:{
+      type:String,
+      default:""
+    },
+    endTime:{
+      type:String,
+      default:""
+    }
 }, {
     timestamps: true,
   }
