@@ -329,12 +329,27 @@ async function run() {
       checkBody(["name", "email", "event", "slot"]),
       async (req, res) => {
         try {
-          
+          const attendee = new Attendee(req.body);
+          attendee
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              if (e.code == 11000) {
+                res.status(400).send({
+                  msg: `${req.body.email} already in attendee list for this event.`,
+                });
+              } else {
+                res.status(400).send({ msg: e.message });
+              }
+            });
         } catch (e) {
           erroResponse(res, e);
         }
       }
     );
+
 
     // Tanzil Rayhan - attendee api creation
 
