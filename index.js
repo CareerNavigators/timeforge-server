@@ -245,7 +245,6 @@ async function run() {
           expTime = dayjs(dateKeys[0], "DDMMYY")
           for (const event of dateKeys) {
             let t_expTime = dayjs(event, "DDMMYY")
-            let t_expTime = dayjs(event, "DDMMYY")
             if (t_expTime.isAfter(expTime)) {
               expTime = t_expTime
               expTime = t_expTime
@@ -266,7 +265,7 @@ async function run() {
               .send({ msg: `Meeting Creation Failed.${e.message}` });
           });
       }
-    );
+    })
     /**
      * get all meeting or single meeting
      * req.query:{id:user id,type:all},{id:meeting id,type:single}
