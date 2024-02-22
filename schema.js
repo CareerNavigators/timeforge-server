@@ -265,7 +265,6 @@ const noteSchema = new mongo.Schema(
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
 const Note = mongo.model("Note", noteSchema);
-
 const timeLineSchema =new mongo.Schema({
   event:{
     type:mongo.Schema.Types.ObjectId,
