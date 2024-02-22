@@ -4,12 +4,12 @@ const mongoosePaginate = require("mongoose-paginate-v2");
 const userSchema = new mongo.Schema(
   {
     name: {
-      type: mongo.Schema.Types.String,
+      type: String,
       trim: true,
       require: true,
     },
     email: {
-      type: mongo.Schema.Types.String,
+      type: String,
       lowercase: true,
       require: true,
       unique: true,
@@ -20,21 +20,21 @@ const userSchema = new mongo.Schema(
       ],
     },
     img_cover: {
-      type: mongo.Schema.Types.String,
+      type: String,
       default: null,
     },
     location: {
-      type: mongo.Schema.Types.String,
+      type: String,
       default: null,
       trim: true,
     },
     timeZone: {
-      type: mongo.Schema.Types.String,
+      type: String,
       default: null,
       trim: true,
     },
     img_profile: {
-      type: mongo.Schema.Types.String,
+      type: String,
       default: null,
     },
     desc: {
@@ -72,15 +72,15 @@ const User = mongo.model("User", userSchema);
 const meetingSchema = new mongo.Schema(
   {
     title: {
-      type: mongo.Schema.Types.String,
+      type: String,
       require: true,
     },
     duration: {
-      type: mongo.Schema.Types.String,
+      type: String,
       require: true,
     },
     desc: {
-      type: mongo.Schema.Types.String,
+      type: String,
       default: null,
     },
     createdBy: {
@@ -93,7 +93,7 @@ const meetingSchema = new mongo.Schema(
       require: true,
     },
     eventType: {
-      type: mongo.Schema.Types.String,
+      type: String,
       require: true,
     },
     camera: {
@@ -185,11 +185,11 @@ const Meeting = mongo.model("Meeting", meetingSchema);
 const attendeeSchema = new mongo.Schema(
   {
     name: {
-      type: mongo.Schema.Types.String,
+      type: String,
       require: true,
     },
     email: {
-      type: mongo.Schema.Types.String,
+      type: String,
       lowercase: true,
       require: true,
       trim: true,
@@ -265,5 +265,25 @@ const noteSchema = new mongo.Schema(
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
 const Note = mongo.model("Note", noteSchema);
-
-module.exports = { User, Meeting, Event, Attendee, Note };
+const timeLineSchema =new mongo.Schema({
+  event:{
+    type:mongo.Schema.Types.ObjectId,
+    required:true
+  },
+  guest:{
+    type:[mongo.Schema.Types.ObjectId],
+  },
+  timline:{
+    type:[{
+      startTime:String,
+      endTime:String,
+      content:String
+    }]
+  }
+},{
+  timestamps: true,
+})
+timeLineSchema.post("save", humanizeErrors);
+timeLineSchema.post("update", humanizeErrors);
+const Timeline = mongo.model("Timeline",timeLineSchema)
+module.exports = { User, Meeting, Attendee, Note,Timeline };
