@@ -235,16 +235,16 @@ async function run() {
       ]),
       async (req, res) => {
         let expTime;
-        if (Object.keys(req.body.events).length!=0) {
-          let dateKeys=Object.keys(req.body.events)
-          expTime=dayjs(dateKeys[0],"DDMMYY")
+        if (Object.keys(req.body.events).length != 0) {
+          let dateKeys = Object.keys(req.body.events)
+          expTime = dayjs(dateKeys[0], "DDMMYY")
           for (const event of dateKeys) {
-            let t_expTime=dayjs(event,"DDMMYY")
+            let t_expTime = dayjs(event, "DDMMYY")
             if (t_expTime.isAfter(expTime)) {
-              expTime=t_expTime
+              expTime = t_expTime
             }
           }
-          req.body["expDate"]=expTime.format("DD-MM-YYYY")
+          req.body["expDate"] = expTime.format("DD-MM-YYYY")
         }
         const meeting = new Meeting(req.body);
         meeting
@@ -294,6 +294,7 @@ async function run() {
         erroResponse(res, e);
       }
     });
+
     app.patch("/meeting/:id", logger, emptyBodyChecker, async (req, res) => {
       try {
         let meeting = await Meeting.findById(req.params.id);
@@ -306,6 +307,7 @@ async function run() {
         erroResponse(res, error);
       }
     });
+
     app.delete("/meeting/:id", logger, async (req, res) => {
       try {
         Meeting.findByIdAndDelete(req.params.id)
@@ -320,6 +322,36 @@ async function run() {
         erroResponse(res, error);
       }
     });
+
+    app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        if (req.query.type == "all") {
+          Timeline.where("createdBy")
+            .equals(req.query.id)
+            .select("-createdBy -desc -events -__v   ")
+            .then((result) => {
+              if (result.length != 0) {
+                res.status(200).send(result);
+              } else {
+                res.send({ msg: "No timeline found." });
+              }
+            });
+        } else if ((req.query.type = "single")) {
+          Timeline.findById(req.query.id)
+            .then((result) => {
+              res.status(200).send(result);
+            })
+            .catch((e) => {
+              res.status(404).send({ msg: "Timeline not found." });
+            });
+        } else {
+          res.status(400).send({ msg: "Expected query failed." });
+        }
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
+
     app.post(
       "/attendee",
       logger,
@@ -347,6 +379,7 @@ async function run() {
         }
       }
     );
+
     app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
       try {
         Attendee.where("event")
@@ -362,6 +395,7 @@ async function run() {
         erroResponse(res, error);
       }
     });
+
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
@@ -374,6 +408,7 @@ async function run() {
         erroResponse(res, error);
       }
     });
+
     app.delete("/attendee/:id", logger, async (req, res) => {
       Attendee.findByIdAndDelete(req.params.id)
         .then((result) => {
@@ -383,6 +418,7 @@ async function run() {
           res.status(400).send({ msg: e.message });
         });
     });
+
     app.post(
       "/note",
       logger,
@@ -404,6 +440,7 @@ async function run() {
         }
       }
     );
+
     app.get("/note", logger, emptyQueryChecker, async (req, res) => {
       if (req.query?.userid) {
         // all the notes for a user
@@ -440,6 +477,7 @@ async function run() {
           });
       }
     });
+
     app.patch("/note/:id", logger, emptyBodyChecker, async (req, res) => {
       const id = req.params.id;
       let note = await Note.findById(id);
@@ -449,6 +487,7 @@ async function run() {
         res.status(400).send({ msg: "Note not found" });
       }
     });
+
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;
       let meeting = new Array();
@@ -495,6 +534,7 @@ async function run() {
           });
         });
     });
+
     app.get("/admin/users", logger, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
@@ -511,6 +551,7 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
+
     app.get("/admin/meetings", logger, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
@@ -527,6 +568,7 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
+
     app.get("/admin/attendee", logger, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
@@ -544,6 +586,7 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
+
     app.post(
       "/sendmail",
       logger,
@@ -568,9 +611,11 @@ async function run() {
           });
       }
     );
+
     app.get("/testhuzaifa", logger, async (req, res) => {
       res.send({ msg: "DONE" });
     });
+
     app.get("/home", logger, async (req, res) => {
       Meeting.find()
         .limit(4)
@@ -591,6 +636,7 @@ run().catch(console.dir);
 app.get("/", (req, res) => {
   res.send("Backend Running");
 });
+
 app.listen(port, () => {
   console.log(`Server Started at ${port}`);
 });
