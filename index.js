@@ -413,7 +413,7 @@ async function run() {
           res.status(400).send({ msg: e.message });
         });
     });
-    
+
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
@@ -426,8 +426,6 @@ async function run() {
         erroResponse(res, error);
       }
     });
-
-    
 
     app.post(
       "/note",
