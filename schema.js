@@ -111,11 +111,19 @@ const meetingSchema = new mongo.Schema(
     expDate: {
       type: String,
       default: "",
+    expDate: {
+      type: String,
+      default: "",
     },
     offline: {
       type: Boolean,
       default: true,
+      type: Boolean,
+      default: true,
     },
+    startTime: {
+      type: String,
+      default: ""
     startTime: {
       type: String,
       default: ""
@@ -123,7 +131,13 @@ const meetingSchema = new mongo.Schema(
     endTime: {
       type: String,
       default: ""
+    endTime: {
+      type: String,
+      default: ""
     }
+  }, {
+  timestamps: true,
+}
   }, {
   timestamps: true,
 }
@@ -155,6 +169,21 @@ meetingSchema.pre("save", async function (next) {
   next();
 });
 meetingSchema.post('findOneAndDelete', async function (doc, next) {
+  try {
+    const user = await User.findById(doc.createdBy);
+    if (user) {
+      user.totalMeeting = (await Meeting.where("createdBy").equals(doc.createdBy)).length;
+      await user.save();
+    }
+    await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy })
+    await Attendee.deleteMany({ meeting: doc._id })
+    console.log("findOneAndDelete");
+    next()
+  } catch (e) {
+    console.log(e.message);
+    next()
+  }
+  next()
   try {
     const user = await User.findById(doc.createdBy);
     if (user) {
@@ -262,6 +291,10 @@ const timeLineSchema = new mongo.Schema({
   event: {
     type: mongo.Schema.Types.ObjectId,
     required: true
+const timeLineSchema = new mongo.Schema({
+  event: {
+    type: mongo.Schema.Types.ObjectId,
+    required: true
   },
   createdBy: {
     type: mongo.Schema.Types.ObjectId,
@@ -277,6 +310,11 @@ const timeLineSchema = new mongo.Schema({
       startTime: String,
       endTime: String,
       content: String
+  timeline: {
+    type: [{
+      startTime: String,
+      endTime: String,
+      content: String
     }]
   },
   default:{}
@@ -285,5 +323,7 @@ const timeLineSchema = new mongo.Schema({
 })
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
+const Timeline = mongo.model("Timeline", timeLineSchema)
+module.exports = { User, Meeting, Attendee, Note, Timeline };
 const Timeline = mongo.model("Timeline", timeLineSchema)
 module.exports = { User, Meeting, Attendee, Note, Timeline };

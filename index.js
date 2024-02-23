@@ -5,9 +5,9 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
-const customParseFormat = require('dayjs/plugin/customParseFormat')
-dayjs.extend(customParseFormat)
-const { User, Meeting, Attendee, Note } = require("./schema");
+const customParseFormat = require("dayjs/plugin/customParseFormat");
+dayjs.extend(customParseFormat);
+const { User, Meeting, Attendee, Note, Timeline } = require("./schema");
 const {
   logger,
   checkBody,
@@ -50,19 +50,20 @@ async function run() {
   try {
     
     /**
-     * url: "/user"
-     * method: POST
-     * create user in mongodb database.
-     * req.body:
+     * To create a new user, send a POST request to "/user" endpoint.
+     * This will add the user to the database.
+     *
+     * Request Body (JSON):
      * {
-     *  name:user name, - required
-     *  email: user email, - required
-     *  img_profile: profile picture of user - optional
+     *     "name": "user name", // required
+     *     "email": "user email", // required
+     *     "img_profile": "profile picture of user" // optional
      * }
-     * res:
-     * user data if the user exist otherwise create the user then send the data.
-     * status 201 means created user. 200 means user already exist
-     * if error occur then 'msg' key contains error message
+     *
+     * Response:
+     * If the user already exists, it will return user data with status code 200.
+     * If the user is created successfully, it will return user data with status code 201.
+     * If an error occurs, the response will contain an error message in the 'msg' key.
      */
     app.post(
       "/user",
@@ -84,25 +85,7 @@ async function run() {
         }
       }
     );
-    /**
-     * Update user information
-     * url:/user/:id - :id = user id from database
-     * method:patch
-     * req.body:
-     * {
-     *  name: user name
-     *  email: user email
-     *  img_cover: cover photo url
-     *  country : country
-     *  timeZone : timeZone
-     *  img_profile: profile photo url
-     * }
-     * res:
-     * 500 - if anything goes wrong
-     * 400 - update failed hole
-     * 202 - update Successful. return the updated element
-     */
-    app.patch("/user/:id", logger, emptyBodyChecker, async (req, res) => {
+    app.patch("/user/:id", logger, async (req, res) => {
       try {
         let user = await User.findById(req.params.id);
         if (user != null) {
@@ -235,40 +218,40 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime"
+        "endTime",
       ]),
       async (req, res) => {
         let expTime;
         if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-        if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-          for (const event of dateKeys) {
-            let t_expTime = dayjs(event, "DDMMYY")
-            if (t_expTime.isAfter(expTime)) {
-              expTime = t_expTime
-              expTime = t_expTime
+          let dateKeys = Object.keys(req.body.events);
+          expTime = dayjs(dateKeys[0], "DDMMYY");
+          if (Object.keys(req.body.events).length != 0) {
+            let dateKeys = Object.keys(req.body.events);
+            expTime = dayjs(dateKeys[0], "DDMMYY");
+            for (const event of dateKeys) {
+              let t_expTime = dayjs(event, "DDMMYY");
+              if (t_expTime.isAfter(expTime)) {
+                expTime = t_expTime;
+                expTime = t_expTime;
+              }
             }
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
+          const meeting = new Meeting(req.body);
+          meeting
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              res
+                .status(400)
+                .send({ msg: `Meeting Creation Failed.${e.message}` });
+            });
         }
-        const meeting = new Meeting(req.body);
-        meeting
-          .save()
-          .then((result) => {
-            res.status(201).send(result);
-          })
-          .catch((e) => {
-            res
-              .status(400)
-              .send({ msg: `Meeting Creation Failed.${e.message}` });
-          });
       }
-    })
-
+    );
     /**
      * get all meeting or single meeting
      * req.query:{id:user id,type:all},{id:meeting id,type:single}
@@ -333,6 +316,7 @@ async function run() {
       }
     });
 
+    //timeline API
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
@@ -361,6 +345,28 @@ async function run() {
         erroResponse(res, e);
       }
     });
+
+    app.post(
+      "/timeline",
+      logger,
+      emptyBodyChecker,
+      checkBody(["meeting", "createdBy", "title"]),
+      async (req, res) => {
+        try {
+          const newTimeline = new Timeline(req.body);
+          newTimeline
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    );
 
     app.post(
       "/attendee",
@@ -406,6 +412,16 @@ async function run() {
       }
     });
 
+    app.delete("/attendee/:id", logger, async (req, res) => {
+      Attendee.findByIdAndDelete(req.params.id)
+        .then((result) => {
+          res.status(200).send({ msg: `${result.name} deleted successfully` });
+        })
+        .catch((e) => {
+          res.status(400).send({ msg: e.message });
+        });
+    });
+
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
@@ -417,16 +433,6 @@ async function run() {
       } catch (error) {
         erroResponse(res, error);
       }
-    });
-
-    app.delete("/attendee/:id", logger, async (req, res) => {
-      Attendee.findByIdAndDelete(req.params.id)
-        .then((result) => {
-          res.status(200).send({ msg: `${result.name} deleted successfully` });
-        })
-        .catch((e) => {
-          res.status(400).send({ msg: e.message });
-        });
     });
 
     app.post(
@@ -596,7 +602,6 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
-
 
     app.post(
       "/sendmail",
