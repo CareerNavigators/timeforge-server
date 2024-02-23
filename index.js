@@ -274,6 +274,24 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
+    app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        if (req.query.type == "all") {
+          Meeting.where("createdBy")
+            .equals(req.query.id)
+            .select("-createdBy -desc -events -__v   ")
+            .then((result) => {
+              if (result.length != 0) {
+                res.status(200).send(result);
+              } else {
+                res.send({ msg: "No meetings found." });
+              }
+            });
+        } 
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
 
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
