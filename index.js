@@ -48,6 +48,22 @@ admin.initializeApp({
 });
 async function run() {
   try {
+    /**
+     * To create a new user, send a POST request to "/user" endpoint.
+     * This will add the user to the database.
+     *
+     * Request Body (JSON):
+     * {
+     *     "name": "user name", // required
+     *     "email": "user email", // required
+     *     "img_profile": "profile picture of user" // optional
+     * }
+     *
+     * Response:
+     * If the user already exists, it will return user data with status code 200.
+     * If the user is created successfully, it will return user data with status code 201.
+     * If an error occurs, the response will contain an error message in the 'msg' key.
+     */
     app.post(
       "/user",
       logger,
