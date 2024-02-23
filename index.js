@@ -278,6 +278,7 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
+    
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
