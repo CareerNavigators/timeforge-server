@@ -496,9 +496,15 @@ async function run() {
     });
 
     // ecommerce
+   app.post("/ecommerce" , logger,emptyBodyChecker, async (req, res) =>{
+     const product = req.body;
+     const result = await Ecommerce.insertOne(product);
+     res.send(result);
+  })
+
     app.get("/ecommerce", logger, emptyQueryChecker, async(req, res) =>{
       try {
-        const ecommerceItems = await Ecommerce.find().toArray();
+        const ecommerceItems = await Ecommerce.find();
         // res.status(200).json(ecommerceItems);
         res.send(ecommerceItems)
         console.log(ecommerceItems);
@@ -507,7 +513,7 @@ async function run() {
       }
     })
 
-    
+
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;
       let meeting = new Array();

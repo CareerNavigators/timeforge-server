@@ -268,11 +268,8 @@ const ecommerceSchema = new mongo.Schema(
     title: {
       type: String,
     },
-    subtitle1:{
-      type: String,
-    },
-    subtitle2:{
-      type:String
+    description: {
+      type: String
     },
     img:{
       type: String,
