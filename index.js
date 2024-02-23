@@ -303,6 +303,19 @@ async function run() {
       }
     });
 
+    app.patch("/meeting/:id", logger, emptyBodyChecker, async (req, res) => {
+      try {
+        let meeting = await Meeting.findById(req.params.id);
+        if (meeting != null) {
+          UpdateHelper(meeting, req.body, res);
+        } else {
+          res.status(400).send({ msg: "meeting not found" });
+        }
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
+
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
