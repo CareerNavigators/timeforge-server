@@ -84,6 +84,18 @@ async function run() {
         }
       }
     );
+    app.patch("/user/:id", async (req, res) => {
+      try {
+        let user = await User.findById(req.params.id);
+        if (user != null) {
+          UpdateHelper(user, req.body, res);
+        } else {
+          res.status(404).send({ msg: "User not found" });
+        }
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
     /**
      * Get single user by email or id.
      * req.query:
