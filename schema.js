@@ -172,6 +172,7 @@ meetingSchema.post("findOneAndDelete", async function (doc, next) {
       await user.save();
     }
     await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
+    await Timeline.findOneAndDelete({ event: doc._id, createdBy: doc.createdBy });
     await Attendee.deleteMany({ meeting: doc._id });
     console.log("findOneAndDelete");
     next();
@@ -272,6 +273,7 @@ const timeLineSchema = new mongo.Schema(
   {
     event: {
       type: mongo.Schema.Types.ObjectId,
+      ref:"Meeting",
       required: true,
     },
     createdBy: {
@@ -290,7 +292,7 @@ const timeLineSchema = new mongo.Schema(
           content: String,
         },
       ],
-      default: null,
+      default: [],
     },
   },
   {

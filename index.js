@@ -48,7 +48,6 @@ admin.initializeApp({
 });
 async function run() {
   try {
-    
     /**
      * To create a new user, send a POST request to "/user" endpoint.
      * This will add the user to the database.
@@ -188,7 +187,7 @@ async function run() {
         }
       }
     });
-    
+
     /**
      * create event
      * req.body sample:
@@ -331,6 +330,7 @@ async function run() {
             });
         } else if ((req.query.type = "single")) {
           Timeline.findById(req.query.id)
+            .select("-__v -updatedAt -event")
             .then((result) => {
               res.status(200).send(result);
             })
@@ -363,6 +363,29 @@ async function run() {
             });
         } catch (e) {
           erroResponse(res, e);
+        }
+      }
+    );
+
+    app.patch(
+      "/timeline/:id",
+      logger,
+      emptyQueryChecker,
+      emptyBodyChecker,
+      async (req, res) => {
+        try {
+          const singleTimeline = await Timeline.findById(req.params.id);
+          if (req.query?.type == "add") {
+            singleTimeline.timeline.push(req.body);
+            const result = await singleTimeline.save();
+            res.status(201).send({ result });
+          } else if (req.query?.type == "replace") {
+            res.status(200).send({ msg: "You did not implemented" });
+          } else {
+            res.status(400).send({ msg: "Something gone south" });
+          }
+        } catch (error) {
+          erroResponse(res, error);
         }
       }
     );
@@ -550,7 +573,7 @@ async function run() {
         });
     });
 
-    app.get("/admin/users", logger, async (req, res) => {
+    app.get("/admin/users", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -567,7 +590,7 @@ async function run() {
       }
     });
 
-    app.get("/admin/meetings", logger, async (req, res) => {
+    app.get("/admin/meetings", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -584,7 +607,7 @@ async function run() {
       }
     });
 
-    app.get("/admin/attendee", logger, async (req, res) => {
+    app.get("/admin/attendee", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -593,12 +616,25 @@ async function run() {
           page: parseInt(page),
           limit: parseInt(limit),
         };
-
         const attendeeData = await Attendee.paginate({}, options);
-
         res.status(200).send(attendeeData);
       } catch (e) {
         res.status(500).send({ msg: e.message });
+      }
+    });
+    app.get("/admin/timeline", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "event createdAt",
+          populate: { path: "event", select: "title" },
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+        const timelineData = await Timeline.paginate({}, options);
+        res.status(200).send(timelineData);
+      } catch (e) {
+        erroResponse(res, e);
       }
     });
 
