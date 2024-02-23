@@ -265,5 +265,23 @@ const noteSchema = new mongo.Schema(
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
 const Note = mongo.model("Note", noteSchema);
-
-module.exports = { User, Meeting, Attendee, Note };
+const timeLineSchema = new mongo.Schema({
+  event: {
+    type: mongo.Schema.Types.ObjectId,
+    required: true
+  },
+  guest: {
+    type: [mongo.Schema.Types.ObjectId],
+  },
+  timline: {
+    type: [{
+      startTime: String,
+    }]
+  }
+}, {
+  timestamps: true,
+})
+timeLineSchema.post("save", humanizeErrors);
+timeLineSchema.post("update", humanizeErrors);
+const Timeline = mongo.model("Timeline", timeLineSchema)
+module.exports = { User, Meeting, Attendee, Note, Timeline };
