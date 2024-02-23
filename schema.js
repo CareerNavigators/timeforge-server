@@ -148,12 +148,12 @@ meetingSchema.pre("save", async function (next) {
         createdBy: this.createdBy,
         meeting: this._id,
       });
-      await newNote.save();
-      const newTimeline=new Timeline({
-        event:this._id,
+      let noteResult= await newNote.save();
+      const newTimeline = new Timeline({
+        event: this._id,
         createdBy: this.createdBy,
-      })
-      await newTimeline.save()
+      });
+      let timelineResult=await newTimeline.save();
     }
     next();
   } catch (e) {
@@ -163,23 +163,6 @@ meetingSchema.pre("save", async function (next) {
   next();
 });
 meetingSchema.post("findOneAndDelete", async function (doc, next) {
-  try {
-    const user = await User.findById(doc.createdBy);
-    if (user) {
-      user.totalMeeting = (
-        await Meeting.where("createdBy").equals(doc.createdBy)
-      ).length;
-      await user.save();
-    }
-    await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
-    await Attendee.deleteMany({ meeting: doc._id });
-    console.log("findOneAndDelete");
-    next();
-  } catch (e) {
-    console.log(e.message);
-    next();
-  }
-  next();
   try {
     const user = await User.findById(doc.createdBy);
     if (user) {
@@ -225,7 +208,7 @@ const attendeeSchema = new mongo.Schema(
     slot: {
       type: mongo.Schema.Types.Mixed,
       require: true,
-      default:{}
+      default: {},
     },
   },
   {
@@ -294,7 +277,6 @@ const timeLineSchema = new mongo.Schema(
     createdBy: {
       type: mongo.Schema.Types.ObjectId,
       ref: "User",
-      require: true,
     },
     guest: {
       type: [mongo.Schema.Types.ObjectId],
@@ -308,13 +290,14 @@ const timeLineSchema = new mongo.Schema(
           content: String,
         },
       ],
-      default: {},
+      default: null,
     },
   },
   {
     timestamps: true,
   }
 );
+timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
 const Timeline = mongo.model("Timeline", timeLineSchema);
