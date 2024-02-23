@@ -85,7 +85,27 @@ async function run() {
         }
       }
     );
-    app.patch("/user/:id", logger, async (req, res) => {
+    /**
+     * To update user information, send a PATCH request to "/user/:id" endpoint.
+     * ":id" should be replaced with the user id from the database.
+     *
+     * Request Body (JSON):
+     * {
+     *     "name": "user name",
+     *     "email": "user email",
+     *     "img_cover": "cover photo url",
+     *     "country": "country",
+     *     "timeZone": "timeZone",
+     *     "img_profile": "profile photo url"
+     * }
+     *
+     * Response:
+     * 500 - Internal Server Error
+     * 400 - Update failed
+     * 202 - Update Successful. Returns the updated element.
+     */
+
+    app.patch("/user/:id", logger, emptyBodyChecker, async (req, res) => {
       try {
         let user = await User.findById(req.params.id);
         if (user != null) {
