@@ -404,6 +404,16 @@ async function run() {
       }
     });
 
+    app.delete("/attendee/:id", logger, async (req, res) => {
+      Attendee.findByIdAndDelete(req.params.id)
+        .then((result) => {
+          res.status(200).send({ msg: `${result.name} deleted successfully` });
+        })
+        .catch((e) => {
+          res.status(400).send({ msg: e.message });
+        });
+    });
+    
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
