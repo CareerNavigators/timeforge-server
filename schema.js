@@ -276,6 +276,8 @@ const timeLineSchema = new mongo.Schema({
   timline: {
     type: [{
       startTime: String,
+      endTime: String,
+      content: String
     }]
   }
 }, {
