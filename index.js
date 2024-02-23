@@ -316,6 +316,21 @@ async function run() {
       }
     });
 
+    app.delete("/meeting/:id", logger, async (req, res) => {
+      try {
+        Meeting.findByIdAndDelete(req.params.id)
+          .then((result) => {
+            res.status(200).send(result);
+          })
+          .catch((e) => {
+            res.status(400).send({ msg: e.message });
+          });
+      } catch (error) {
+        console.log(error);
+        erroResponse(res, error);
+      }
+    });
+
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
