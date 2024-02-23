@@ -84,7 +84,7 @@ async function run() {
         }
       }
     );
-    app.patch("/user/:id", async (req, res) => {
+    app.patch("/user/:id", logger, async (req, res) => {
       try {
         let user = await User.findById(req.params.id);
         if (user != null) {
