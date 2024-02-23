@@ -48,21 +48,6 @@ admin.initializeApp({
 });
 async function run() {
   try {
-    /**
-     * url: "/user"
-     * method: POST
-     * create user in mongodb database.
-     * req.body:
-     * {
-     *  name:user name, - required
-     *  email: user email, - required
-     *  img_profile: profile picture of user - optional
-     * }
-     * res:
-     * user data if the user exist otherwise create the user then send the data.
-     * status 201 means created user. 200 means user already exist
-     * if error occur then 'msg' key contains error message
-     */
     app.post(
       "/user",
       logger,
@@ -83,36 +68,6 @@ async function run() {
         }
       }
     );
-    /**
-     * Update user information
-     * url:/user/:id - :id = user id from database
-     * method:patch
-     * req.body:
-     * {
-     *  name: user name
-     *  email: user email
-     *  img_cover: cover photo url
-     *  country : country
-     *  timeZone : timeZone
-     *  img_profile: profile photo url
-     * }
-     * res:
-     * 500 - if anything goes wrong
-     * 400 - update failed hole
-     * 202 - update Successful. return the updated element
-     */
-    app.patch("/user/:id", logger, emptyBodyChecker, async (req, res) => {
-      try {
-        let user = await User.findById(req.params.id);
-        if (user != null) {
-          UpdateHelper(user, req.body, res);
-        } else {
-          res.status(404).send({ msg: "User not found" });
-        }
-      } catch (e) {
-        erroResponse(res, e);
-      }
-    });
     /**
      * Get single user by email or id.
      * req.query:
@@ -360,7 +315,6 @@ async function run() {
         erroResponse(res, e);
       }
     });
-
 
     app.post(
       "/timeline",
