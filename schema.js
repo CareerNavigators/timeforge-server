@@ -273,7 +273,7 @@ const timeLineSchema = new mongo.Schema({
   guest: {
     type: [mongo.Schema.Types.ObjectId],
   },
-  timline: {
+  timeline: {
     type: [{
       startTime: String,
       endTime: String,

@@ -331,6 +331,7 @@ async function run() {
       }
     });
 
+    //timeline API
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
