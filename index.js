@@ -287,7 +287,17 @@ async function run() {
                 res.send({ msg: "No meetings found." });
               }
             });
-        } 
+        } else if ((req.query.type = "single")) {
+          Meeting.findById(req.query.id)
+            .then((result) => {
+              res.status(200).send(result);
+            })
+            .catch((e) => {
+              res.status(404).send({ msg: "Meeting not found." });
+            });
+        } else {
+          res.status(400).send({ msg: "Expected query failed." });
+        }
       } catch (e) {
         erroResponse(res, e);
       }
