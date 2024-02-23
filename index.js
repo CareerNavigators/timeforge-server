@@ -388,7 +388,21 @@ async function run() {
       }
     );
 
-    
+    app.get("/attendee", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        Attendee.where("event")
+          .equals(req.query.id)
+          .then((result) => {
+            if (result.length != 0) {
+              res.status(200).send(result);
+            } else {
+              res.status(400).send({ msg: "No attendee found." });
+            }
+          });
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
 
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
