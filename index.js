@@ -333,9 +333,9 @@ async function run() {
 
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
-        if (req.query.type == "many") {
+        if (req.query.type == "all") {
           Timeline.where("createdBy")
-            .equals(req.query._id)
+            .equals(req.query.id)
             .select("-createdBy -desc -events -__v   ")
             .then((result) => {
               if (result.length != 0) {
@@ -344,8 +344,8 @@ async function run() {
                 res.send({ msg: "No timeline found." });
               }
             });
-        } else if ((req.query.type = "one")) {
-          Timeline.findById(req.query._id)
+        } else if ((req.query.type = "single")) {
+          Timeline.findById(req.query.id)
             .then((result) => {
               res.status(200).send(result);
             })
