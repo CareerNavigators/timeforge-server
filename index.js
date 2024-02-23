@@ -48,6 +48,7 @@ admin.initializeApp({
 });
 async function run() {
   try {
+    
     /**
      * url: "/user"
      * method: POST
@@ -204,6 +205,7 @@ async function run() {
         }
       }
     });
+    
     /**
      * create event
      * req.body sample:
@@ -266,6 +268,7 @@ async function run() {
           });
       }
     })
+
     /**
      * get all meeting or single meeting
      * req.query:{id:user id,type:all},{id:meeting id,type:single}
