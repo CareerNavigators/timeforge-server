@@ -5,8 +5,8 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
-const customParseFormat = require('dayjs/plugin/customParseFormat')
-dayjs.extend(customParseFormat)
+const customParseFormat = require("dayjs/plugin/customParseFormat");
+dayjs.extend(customParseFormat);
 const { User, Meeting, Attendee, Note } = require("./schema");
 const {
   logger,
@@ -233,39 +233,40 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime"
+        "endTime",
       ]),
       async (req, res) => {
         let expTime;
         if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-        if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-          for (const event of dateKeys) {
-            let t_expTime = dayjs(event, "DDMMYY")
-            if (t_expTime.isAfter(expTime)) {
-              expTime = t_expTime
-              expTime = t_expTime
+          let dateKeys = Object.keys(req.body.events);
+          expTime = dayjs(dateKeys[0], "DDMMYY");
+          if (Object.keys(req.body.events).length != 0) {
+            let dateKeys = Object.keys(req.body.events);
+            expTime = dayjs(dateKeys[0], "DDMMYY");
+            for (const event of dateKeys) {
+              let t_expTime = dayjs(event, "DDMMYY");
+              if (t_expTime.isAfter(expTime)) {
+                expTime = t_expTime;
+                expTime = t_expTime;
+              }
             }
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
+          const meeting = new Meeting(req.body);
+          meeting
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              res
+                .status(400)
+                .send({ msg: `Meeting Creation Failed.${e.message}` });
+            });
         }
-        const meeting = new Meeting(req.body);
-        meeting
-          .save()
-          .then((result) => {
-            res.status(201).send(result);
-          })
-          .catch((e) => {
-            res
-              .status(400)
-              .send({ msg: `Meeting Creation Failed.${e.message}` });
-          });
       }
-    })
+    );
     /**
      * get all meeting or single meeting
      * req.query:{id:user id,type:all},{id:meeting id,type:single}
@@ -273,62 +274,6 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
-    app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
-      try {
-        if (req.query.type == "all") {
-          Meeting.where("createdBy")
-            .equals(req.query.id)
-            .select("-createdBy -desc -events -__v   ")
-            .then((result) => {
-              if (result.length != 0) {
-                res.status(200).send(result);
-              } else {
-                res.send({ msg: "No meetings found." });
-              }
-            });
-        } else if ((req.query.type = "single")) {
-          Meeting.findById(req.query.id)
-            .then((result) => {
-              res.status(200).send(result);
-            })
-            .catch((e) => {
-              res.status(404).send({ msg: "Meeting not found." });
-            });
-        } else {
-          res.status(400).send({ msg: "Expected query failed." });
-        }
-      } catch (e) {
-        erroResponse(res, e);
-      }
-    });
-
-    app.patch("/meeting/:id", logger, emptyBodyChecker, async (req, res) => {
-      try {
-        let meeting = await Meeting.findById(req.params.id);
-        if (meeting != null) {
-          UpdateHelper(meeting, req.body, res);
-        } else {
-          res.status(400).send({ msg: "meeting not found" });
-        }
-      } catch (error) {
-        erroResponse(res, error);
-      }
-    });
-
-    app.delete("/meeting/:id", logger, async (req, res) => {
-      try {
-        Meeting.findByIdAndDelete(req.params.id)
-          .then((result) => {
-            res.status(200).send(result);
-          })
-          .catch((e) => {
-            res.status(400).send({ msg: e.message });
-          });
-      } catch (error) {
-        console.log(error);
-        erroResponse(res, error);
-      }
-    });
 
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
@@ -593,7 +538,6 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
-
 
     app.post(
       "/sendmail",
