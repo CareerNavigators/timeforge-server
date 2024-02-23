@@ -48,20 +48,26 @@ admin.initializeApp({
 });
 async function run() {
   try {
-    app.post("/user", async (req, res) => {
-      let t_user = await User.isUserExist(req.body.email);
-      if (t_user == null) {
-        const user = new User(req.body);
-        try {
-          let result = await user.save();
-          res.status(201).send(result);
-        } catch (e) {
-          erroResponse(res, e);
+    app.post(
+      "/user",
+      logger,
+      emptyBodyChecker,
+      checkBody(["name", "email"]),
+      async (req, res) => {
+        let t_user = await User.isUserExist(req.body.email);
+        if (t_user == null) {
+          const user = new User(req.body);
+          try {
+            let result = await user.save();
+            res.status(201).send(result);
+          } catch (e) {
+            erroResponse(res, e);
+          }
+        } else {
+          res.status(200).send(t_user);
         }
-      } else {
-        res.status(200).send(t_user);
       }
-    });
+    );
     /**
      * Get single user by email or id.
      * req.query:
