@@ -7,7 +7,7 @@ const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
-const { User, Meeting, Attendee, Note } = require("./schema");
+const { User, Meeting, Attendee, Note, Timeline } = require("./schema");
 const {
   logger,
   checkBody,
@@ -360,6 +360,29 @@ async function run() {
         erroResponse(res, e);
       }
     });
+
+
+    app.post(
+      "/timeline",
+      logger,
+      emptyBodyChecker,
+      checkBody(["meeting", "createdBy", "title"]),
+      async (req, res) => {
+        try {
+          const newTimeline = new Timeline(req.body);
+          newTimeline
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    );
 
     app.post(
       "/attendee",
