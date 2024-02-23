@@ -5,8 +5,8 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
-const customParseFormat = require('dayjs/plugin/customParseFormat')
-dayjs.extend(customParseFormat)
+const customParseFormat = require("dayjs/plugin/customParseFormat");
+dayjs.extend(customParseFormat);
 const { User, Meeting, Attendee, Note } = require("./schema");
 const {
   logger,
@@ -233,39 +233,40 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime"
+        "endTime",
       ]),
       async (req, res) => {
         let expTime;
         if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-        if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-          for (const event of dateKeys) {
-            let t_expTime = dayjs(event, "DDMMYY")
-            if (t_expTime.isAfter(expTime)) {
-              expTime = t_expTime
-              expTime = t_expTime
+          let dateKeys = Object.keys(req.body.events);
+          expTime = dayjs(dateKeys[0], "DDMMYY");
+          if (Object.keys(req.body.events).length != 0) {
+            let dateKeys = Object.keys(req.body.events);
+            expTime = dayjs(dateKeys[0], "DDMMYY");
+            for (const event of dateKeys) {
+              let t_expTime = dayjs(event, "DDMMYY");
+              if (t_expTime.isAfter(expTime)) {
+                expTime = t_expTime;
+                expTime = t_expTime;
+              }
             }
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
+          const meeting = new Meeting(req.body);
+          meeting
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              res
+                .status(400)
+                .send({ msg: `Meeting Creation Failed.${e.message}` });
+            });
         }
-        const meeting = new Meeting(req.body);
-        meeting
-          .save()
-          .then((result) => {
-            res.status(201).send(result);
-          })
-          .catch((e) => {
-            res
-              .status(400)
-              .send({ msg: `Meeting Creation Failed.${e.message}` });
-          });
       }
-    })
+    );
     /**
      * get all meeting or single meeting
      * req.query:{id:user id,type:all},{id:meeting id,type:single}
@@ -403,6 +404,16 @@ async function run() {
       }
     });
 
+    app.delete("/attendee/:id", logger, async (req, res) => {
+      Attendee.findByIdAndDelete(req.params.id)
+        .then((result) => {
+          res.status(200).send({ msg: `${result.name} deleted successfully` });
+        })
+        .catch((e) => {
+          res.status(400).send({ msg: e.message });
+        });
+    });
+
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
@@ -414,16 +425,6 @@ async function run() {
       } catch (error) {
         erroResponse(res, error);
       }
-    });
-
-    app.delete("/attendee/:id", logger, async (req, res) => {
-      Attendee.findByIdAndDelete(req.params.id)
-        .then((result) => {
-          res.status(200).send({ msg: `${result.name} deleted successfully` });
-        })
-        .catch((e) => {
-          res.status(400).send({ msg: e.message });
-        });
     });
 
     app.post(
@@ -593,7 +594,6 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
-
 
     app.post(
       "/sendmail",
