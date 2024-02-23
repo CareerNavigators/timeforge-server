@@ -48,6 +48,7 @@ admin.initializeApp({
 });
 async function run() {
   try {
+    
     /**
      * To create a new user, send a POST request to "/user" endpoint.
      * This will add the user to the database.
@@ -187,6 +188,7 @@ async function run() {
         }
       }
     });
+    
     /**
      * create event
      * req.body sample:
@@ -233,7 +235,6 @@ async function run() {
                 expTime = t_expTime;
               }
             }
-            req.body["expDate"] = expTime.format("DD-MM-YYYY");
             req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
           const meeting = new Meeting(req.body);
