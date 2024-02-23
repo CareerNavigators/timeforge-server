@@ -262,6 +262,29 @@ const noteSchema = new mongo.Schema(
     timestamps: true,
   }
 );
+
+const ecommerceSchema = new mongo.Schema(
+   {
+    title: {
+      type: String,
+    },
+    subtitle1:{
+      type: String,
+    },
+    subtitle2:{
+      type:String
+    },
+    img:{
+      type: String,
+    },
+    price:{
+      type: Number,
+    }
+  }
+  )
+  const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
+
+
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
 const Note = mongo.model("Note", noteSchema);
@@ -286,4 +309,4 @@ const timeLineSchema =new mongo.Schema({
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
 const Timeline = mongo.model("Timeline",timeLineSchema)
-module.exports = { User, Meeting, Attendee, Note,Timeline };
+module.exports = { User, Meeting, Attendee, Note,Timeline, Ecommerce };

@@ -495,6 +495,19 @@ async function run() {
       }
     });
 
+    // ecommerce
+    app.get("/ecommerce", logger, emptyQueryChecker, async(req, res) =>{
+      try {
+        const ecommerceItems = await Ecommerce.find().toArray();
+        // res.status(200).json(ecommerceItems);
+        res.send(ecommerceItems)
+        console.log(ecommerceItems);
+      } catch (error) {
+        res.status(500).json({ message: 'Error fetching ecommerce items' });
+      }
+    })
+
+    
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;
       let meeting = new Array();
