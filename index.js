@@ -236,7 +236,6 @@ async function run() {
               }
             }
             req.body["expDate"] = expTime.format("DD-MM-YYYY");
-            req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
           const meeting = new Meeting(req.body);
           meeting

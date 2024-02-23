@@ -111,9 +111,6 @@ const meetingSchema = new mongo.Schema(
     expDate: {
       type: String,
       default: "",
-    expDate: {
-      type: String,
-      default: "",
     },
     offline: {
       type: Boolean,
@@ -123,24 +120,16 @@ const meetingSchema = new mongo.Schema(
     },
     startTime: {
       type: String,
-      default: ""
-    startTime: {
-      type: String,
-      default: ""
+      default: "",
     },
     endTime: {
       type: String,
-      default: ""
-    endTime: {
-      type: String,
-      default: ""
-    }
-  }, {
-  timestamps: true,
-}
-  }, {
-  timestamps: true,
-}
+      default: "",
+    },
+  },
+  {
+    timestamps: true,
+  }
 );
 meetingSchema.plugin(mongoosePaginate);
 meetingSchema.post("save", humanizeErrors);
@@ -157,9 +146,9 @@ meetingSchema.pre("save", async function (next) {
       const newNote = new Note({
         title: this.title,
         createdBy: this.createdBy,
-        meeting: this._id
-      })
-      await newNote.save()
+        meeting: this._id,
+      });
+      await newNote.save();
     }
     next();
   } catch (e) {
@@ -168,38 +157,41 @@ meetingSchema.pre("save", async function (next) {
   }
   next();
 });
-meetingSchema.post('findOneAndDelete', async function (doc, next) {
+meetingSchema.post("findOneAndDelete", async function (doc, next) {
   try {
     const user = await User.findById(doc.createdBy);
     if (user) {
-      user.totalMeeting = (await Meeting.where("createdBy").equals(doc.createdBy)).length;
+      user.totalMeeting = (
+        await Meeting.where("createdBy").equals(doc.createdBy)
+      ).length;
       await user.save();
     }
-    await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy })
-    await Attendee.deleteMany({ meeting: doc._id })
+    await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
+    await Attendee.deleteMany({ meeting: doc._id });
     console.log("findOneAndDelete");
-    next()
+    next();
   } catch (e) {
     console.log(e.message);
-    next()
+    next();
   }
-  next()
+  next();
   try {
     const user = await User.findById(doc.createdBy);
     if (user) {
-      user.totalMeeting = (await Meeting.where("createdBy").equals(doc.createdBy)).length;
+      user.totalMeeting = (
+        await Meeting.where("createdBy").equals(doc.createdBy)
+      ).length;
       await user.save();
     }
-    await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy })
-    await Attendee.deleteMany({ meeting: doc._id })
+    await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
+    await Attendee.deleteMany({ meeting: doc._id });
     console.log("findOneAndDelete");
-    next()
+    next();
   } catch (e) {
     console.log(e.message);
-    next()
+    next();
   }
-  next()
-
+  next();
 });
 
 const Meeting = mongo.model("Meeting", meetingSchema);
@@ -287,43 +279,37 @@ const noteSchema = new mongo.Schema(
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
 const Note = mongo.model("Note", noteSchema);
-const timeLineSchema = new mongo.Schema({
-  event: {
-    type: mongo.Schema.Types.ObjectId,
-    required: true
-const timeLineSchema = new mongo.Schema({
-  event: {
-    type: mongo.Schema.Types.ObjectId,
-    required: true
+const timeLineSchema = new mongo.Schema(
+  {
+    event: {
+      type: mongo.Schema.Types.ObjectId,
+      required: true,
+    },
+    createdBy: {
+      type: mongo.Schema.Types.ObjectId,
+      ref: "User",
+      require: true,
+    },
+    guest: {
+      type: [mongo.Schema.Types.ObjectId],
+      default: [],
+    },
+    timeline: {
+      type: [
+        {
+          startTime: String,
+          endTime: String,
+          content: String,
+        },
+      ],
+      default: {},
+    },
   },
-  createdBy: {
-    type: mongo.Schema.Types.ObjectId,
-    ref: "User",
-    require: true,
-  },
-  guest: {
-    type: [mongo.Schema.Types.ObjectId],
-    default:[]
-  },
-  timeline: {
-    type: [{
-      startTime: String,
-      endTime: String,
-      content: String
-  timeline: {
-    type: [{
-      startTime: String,
-      endTime: String,
-      content: String
-    }]
-  },
-  default:{}
-}, {
-  timestamps: true,
-})
+  {
+    timestamps: true,
+  }
+);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
-const Timeline = mongo.model("Timeline", timeLineSchema)
-module.exports = { User, Meeting, Attendee, Note, Timeline };
-const Timeline = mongo.model("Timeline", timeLineSchema)
+const Timeline = mongo.model("Timeline", timeLineSchema);
 module.exports = { User, Meeting, Attendee, Note, Timeline };
