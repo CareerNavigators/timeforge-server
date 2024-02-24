@@ -328,13 +328,14 @@ async function run() {
                 res.send({ msg: "No timeline found." });
               }
             });
-        } else if ((req.query.type = "single")) {
+        } else if (req.query.type = "single") {
           Timeline.findById(req.query.id)
-            .select("-__v -updatedAt -event")
+            .select("event createdBy timeline guest").populate("event","startTime endTime")
             .then((result) => {
               res.status(200).send(result);
             })
             .catch((e) => {
+              console.log(e.message);
               res.status(404).send({ msg: "Timeline not found." });
             });
         } else {
