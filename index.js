@@ -5,9 +5,9 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
-const customParseFormat = require('dayjs/plugin/customParseFormat')
-dayjs.extend(customParseFormat)
-const { User, Meeting, Attendee, Note } = require("./schema");
+const customParseFormat = require("dayjs/plugin/customParseFormat");
+dayjs.extend(customParseFormat);
+const { User, Meeting, Attendee, Note, Ecommerce, Cart } = require("./schema");
 const {
   logger,
   checkBody,
@@ -233,39 +233,40 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime"
+        "endTime",
       ]),
       async (req, res) => {
         let expTime;
         if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-        if (Object.keys(req.body.events).length != 0) {
-          let dateKeys = Object.keys(req.body.events)
-          expTime = dayjs(dateKeys[0], "DDMMYY")
-          for (const event of dateKeys) {
-            let t_expTime = dayjs(event, "DDMMYY")
-            if (t_expTime.isAfter(expTime)) {
-              expTime = t_expTime
-              expTime = t_expTime
+          let dateKeys = Object.keys(req.body.events);
+          expTime = dayjs(dateKeys[0], "DDMMYY");
+          if (Object.keys(req.body.events).length != 0) {
+            let dateKeys = Object.keys(req.body.events);
+            expTime = dayjs(dateKeys[0], "DDMMYY");
+            for (const event of dateKeys) {
+              let t_expTime = dayjs(event, "DDMMYY");
+              if (t_expTime.isAfter(expTime)) {
+                expTime = t_expTime;
+                expTime = t_expTime;
+              }
             }
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
+            req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
-          req.body["expDate"] = expTime.format("DD-MM-YYYY")
+          const meeting = new Meeting(req.body);
+          meeting
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              res
+                .status(400)
+                .send({ msg: `Meeting Creation Failed.${e.message}` });
+            });
         }
-        const meeting = new Meeting(req.body);
-        meeting
-          .save()
-          .then((result) => {
-            res.status(201).send(result);
-          })
-          .catch((e) => {
-            res
-              .status(400)
-              .send({ msg: `Meeting Creation Failed.${e.message}` });
-          });
       }
-    })
+    );
     /**
      * get all meeting or single meeting
      * req.query:{id:user id,type:all},{id:meeting id,type:single}
@@ -496,23 +497,77 @@ async function run() {
     });
 
     // ecommerce
-   app.post("/ecommerce" , logger,emptyBodyChecker, async (req, res) =>{
-     const product = req.body;
-     const result = await Ecommerce.insertOne(product);
-     res.send(result);
-  })
+    app.post(
+      "/ecommerce",
+      logger,
+      emptyBodyChecker,
+      checkBody(["title", "price", "img"]),
+      async (req, res) => {
+        //  const product = req.body;
+        //  const result = await Ecommerce.save(product);
+        //  res.send(result);
+        try {
+          const product = new Ecommerce(req.body);
+          product
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(response, e);
+        }
+      }
+    );
 
-    app.get("/ecommerce", logger, emptyQueryChecker, async(req, res) =>{
+    app.get("/ecommerce", logger, async (req, res) => {
       try {
         const ecommerceItems = await Ecommerce.find();
         // res.status(200).json(ecommerceItems);
-        res.send(ecommerceItems)
         console.log(ecommerceItems);
+        res.send(ecommerceItems);
       } catch (error) {
-        res.status(500).json({ message: 'Error fetching ecommerce items' });
+        res.status(500).json({ message: "Error fetching ecommerce items" });
       }
-    })
+    });
 
+    // cart
+    app.post(
+      "/cart",
+      emptyBodyChecker,
+      checkBody(["title", "isSold", "price", "productId", "userId", "img"]),
+      async (req, res) => {
+        try {
+          const cart = new Cart(req.body);
+          cart
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(response, e);
+        }
+      }
+    );
+
+    app.get("/cart", logger, emptyQueryChecker, async (req, res) => {
+      if (req.query?.userid) {
+        Cart.where("productId")
+          .equals(req.query?.userid)
+          .then((result) => {
+            if (result.length != 0) {
+              res.status(200).send(result);
+            } else {
+              res.status(404).send({ msg: "don't find cart item" });
+            }
+          });
+      }
+    });
 
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;
@@ -612,7 +667,6 @@ async function run() {
         res.status(500).send({ msg: e.message });
       }
     });
-
 
     app.post(
       "/sendmail",
