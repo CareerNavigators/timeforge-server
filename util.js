@@ -93,6 +93,20 @@ async function DeleteMeeting(id,updateUser=false) {
     }
 
 }
+/**
+ * google image profile have `=s96-c` which makes image smaller. this function just remove it
+ * @param {String} mainString 
+ * @param {String} compareString 
+ * @returns {String} - return mainString if mainString does not contain the compareString. otherwise cut it then return it
+ * 
+ */
+function ProfileImageSizeCutter(mainString, compareString='=s96-c') {
+    const lastSix = mainString.slice(-6);
+    if (lastSix === compareString) {
+        return mainString.slice(0, -6);
+    } else {
+        return mainString;
+    }
+}
 
-
-module.exports = { erroResponse, UpdateHelper, DeleteUser, DeleteMeeting }
+module.exports = { erroResponse, UpdateHelper, DeleteUser, DeleteMeeting,ProfileImageSizeCutter }

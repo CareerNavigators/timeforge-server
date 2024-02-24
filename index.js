@@ -14,7 +14,7 @@ const {
   emptyBodyChecker,
   emptyQueryChecker,
 } = require("./middleware");
-const { erroResponse, UpdateHelper, DeleteUser } = require("./util");
+const { erroResponse, UpdateHelper, DeleteUser, ProfileImageSizeCutter } = require("./util");
 const app = express();
 const port = process.env.PORT || 5111;
 app.use(cors());
@@ -71,6 +71,9 @@ async function run() {
       checkBody(["name", "email"]),
       async (req, res) => {
         let t_user = await User.isUserExist(req.body.email);
+        if (req.body?.img_profile) {
+          req.body.img_profile=ProfileImageSizeCutter(req.body.img_profile)
+        }
         if (t_user == null) {
           const user = new User(req.body);
           try {
@@ -277,7 +280,7 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
-    
+
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
@@ -349,9 +352,10 @@ async function run() {
                 res.send({ msg: "No timeline found." });
               }
             });
-        } else if (req.query.type = "single") {
+        } else if ((req.query.type = "single")) {
           Timeline.findById(req.query.id)
-            .select("event createdBy timeline guest").populate("event","startTime endTime")
+            .select("event createdBy timeline guest")
+            .populate("event", "startTime endTime")
             .then((result) => {
               res.status(200).send(result);
             })
@@ -421,7 +425,7 @@ async function run() {
       }
     );
 
-    app.delete("/timeline/:id", logger,  async (req, res) => {
+    app.delete("/timeline/:id", logger, async (req, res) => {
       try {
         const singleTimeline = await Timeline.findById(req.params.id);
         singleTimeline.guest = [];
@@ -707,6 +711,12 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
+      User.find().then(result=>{
+        for (const user of result) {
+          user.img_profile=ProfileImageSizeCutter(user.img_profile)
+          user.save()
+        }
+      })
       res.send({ msg: "DONE" });
     });
 
@@ -721,6 +731,23 @@ async function run() {
           erroResponse(res, e);
         });
     });
+    app.post(
+      "/guest",
+      logger,
+      emptyBodyChecker,
+      checkBody(["text"]),
+      async (req, res) => {
+        try {
+          const regex = new RegExp(req.body.text, "i"); // Case-insensitive regex
+          const result = await User.find({
+            $or: [{ name: regex }, { email: regex }],
+          }).select("img_profile email name");
+          res.status(200).send(result);
+        } catch (e) {
+          erroResponse(res, e); // Assuming erroResponse is a function you've defined to handle errors
+        }
+      }
+    );
   } catch (e) {
     console.log(e);
     return;
