@@ -350,12 +350,14 @@ async function run() {
                 res.send({ msg: "No timeline found." });
               }
             });
-        } else if ((req.query.type = "single")) {
+        } else if (req.query.type = "single") {
           Timeline.findById(req.query.id)
+            .select("event createdBy timeline guest").populate("event","startTime endTime")
             .then((result) => {
               res.status(200).send(result);
             })
             .catch((e) => {
+              console.log(e.message);
               res.status(404).send({ msg: "Timeline not found." });
             });
         } else {
@@ -387,6 +389,50 @@ async function run() {
         }
       }
     );
+
+    app.patch(
+      "/timeline/:id",
+      logger,
+      emptyQueryChecker,
+      emptyBodyChecker,
+      async (req, res) => {
+        try {
+          const singleTimeline = await Timeline.findById(req.params.id);
+          if (req.query?.type == "add") {
+            singleTimeline.timeline.push(req.body);
+            const result = await singleTimeline.save();
+            res.status(201).send({ result });
+          } else if (req.query?.type == "content") {
+            const timelineItem = singleTimeline.timeline.find(
+              (item) => item._id.toString() === req.body.id
+            );
+            if (timelineItem) {
+              timelineItem.content = req.body.content;
+              await singleTimeline.save(); // Save the parent document after updating the embedded document
+              res.status(200).send({ msg: "Content updated." });
+            } else {
+              res.status(404).send({ msg: "Timeline item not found." });
+            }
+          } else {
+            res.status(400).send({ msg: "Something gone south" });
+          }
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
+
+    app.delete("/timeline/:id", logger,  async (req, res) => {
+      try {
+        const singleTimeline = await Timeline.findById(req.params.id);
+        singleTimeline.guest = [];
+        singleTimeline.timeline = [];
+        await singleTimeline.save();
+        res.status(200).send({ msg: "Reset all timeline" });
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
 
     app.post(
       "/attendee",
@@ -571,7 +617,7 @@ async function run() {
         });
     });
 
-    app.get("/admin/users", logger, async (req, res) => {
+    app.get("/admin/users", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -588,7 +634,7 @@ async function run() {
       }
     });
 
-    app.get("/admin/meetings", logger, async (req, res) => {
+    app.get("/admin/meetings", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -605,7 +651,7 @@ async function run() {
       }
     });
 
-    app.get("/admin/attendee", logger, async (req, res) => {
+    app.get("/admin/attendee", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -614,12 +660,25 @@ async function run() {
           page: parseInt(page),
           limit: parseInt(limit),
         };
-
         const attendeeData = await Attendee.paginate({}, options);
-
         res.status(200).send(attendeeData);
       } catch (e) {
         res.status(500).send({ msg: e.message });
+      }
+    });
+    app.get("/admin/timeline", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "event createdAt",
+          populate: { path: "event", select: "title" },
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+        const timelineData = await Timeline.paginate({}, options);
+        res.status(200).send(timelineData);
+      } catch (e) {
+        erroResponse(res, e);
       }
     });
 
