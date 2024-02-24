@@ -352,7 +352,7 @@ async function run() {
             });
         } else if (req.query.type = "single") {
           Timeline.findById(req.query.id)
-            .select("event createdBy timeline guest").populate("event","startTime endTime")
+            .select("event createdBy timeline guest").populate("event", "startTime endTime")
             .then((result) => {
               res.status(200).send(result);
             })
@@ -422,7 +422,7 @@ async function run() {
       }
     );
 
-    app.delete("/timeline/:id", logger,  async (req, res) => {
+    app.delete("/timeline/:id", logger, async (req, res) => {
       try {
         const singleTimeline = await Timeline.findById(req.params.id);
         singleTimeline.guest = [];
