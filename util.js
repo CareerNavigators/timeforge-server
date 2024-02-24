@@ -1,4 +1,4 @@
-const { User, Meeting, Note, Attendee } = require("./schema");
+const { User, Meeting, Note, Attendee, Timeline } = require("./schema");
 const mongo = require('mongoose');
 /**
  * sends error with error server side any other un handel error.
@@ -81,6 +81,7 @@ async function DeleteMeeting(id,updateUser=false) {
         for (const meeting of meetings) {
              await Note.deleteMany({ meeting: new mongo.Types.ObjectId(meeting._id) })
              await Attendee.deleteMany({ event: new mongo.Types.ObjectId(meeting._id) })
+             await Timeline.deleteMany({ event: new mongo.Types.ObjectId(meeting._id) })
         }
         await Meeting.deleteMany({ createdBy: new mongo.Types.ObjectId(id) })
         if (updateUser) {
