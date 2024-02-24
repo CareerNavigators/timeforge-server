@@ -379,8 +379,17 @@ async function run() {
             singleTimeline.timeline.push(req.body);
             const result = await singleTimeline.save();
             res.status(201).send({ result });
-          } else if (req.query?.type == "replace") {
-            res.status(200).send({ msg: "You did not implemented" });
+          } else if (req.query?.type == "content") {
+            const timelineItem = singleTimeline.timeline.find(
+              (item) => item._id.toString() === req.body.id
+            );
+            if (timelineItem) {
+              timelineItem.content = req.body.content;
+              await singleTimeline.save(); // Save the parent document after updating the embedded document
+              res.status(200).send({ msg: "Content updated." });
+            } else {
+              res.status(404).send({ msg: "Timeline item not found." });
+            }
           } else {
             res.status(400).send({ msg: "Something gone south" });
           }
@@ -389,6 +398,18 @@ async function run() {
         }
       }
     );
+
+    app.delete("/timeline/:id", logger,  async (req, res) => {
+      try {
+        const singleTimeline = await Timeline.findById(req.params.id);
+        singleTimeline.guest = [];
+        singleTimeline.timeline = [];
+        await singleTimeline.save();
+        res.status(200).send({ msg: "Reset all timeline" });
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
 
     app.post(
       "/attendee",

@@ -302,5 +302,6 @@ const timeLineSchema = new mongo.Schema(
 timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
+
 const Timeline = mongo.model("Timeline", timeLineSchema);
 module.exports = { User, Meeting, Attendee, Note, Timeline };
