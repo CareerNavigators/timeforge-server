@@ -48,7 +48,7 @@ admin.initializeApp({
 });
 async function run() {
   try {
-    
+
     /**
      * To create a new user, send a POST request to "/user" endpoint.
      * This will add the user to the database.
@@ -208,7 +208,7 @@ async function run() {
         }
       }
     });
-    
+
     /**
      * create event
      * req.body sample:
@@ -278,7 +278,7 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
-    
+
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
