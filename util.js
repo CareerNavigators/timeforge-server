@@ -1,4 +1,4 @@
-const { User, Meeting, Note, Attendee } = require("./schema");
+const { User, Meeting, Note, Attendee, Timeline } = require("./schema");
 const mongo = require('mongoose');
 /**
  * sends error with error server side any other un handel error.
@@ -81,6 +81,7 @@ async function DeleteMeeting(id,updateUser=false) {
         for (const meeting of meetings) {
              await Note.deleteMany({ meeting: new mongo.Types.ObjectId(meeting._id) })
              await Attendee.deleteMany({ event: new mongo.Types.ObjectId(meeting._id) })
+             await Timeline.deleteMany({ event: new mongo.Types.ObjectId(meeting._id) })
         }
         await Meeting.deleteMany({ createdBy: new mongo.Types.ObjectId(id) })
         if (updateUser) {
@@ -92,6 +93,20 @@ async function DeleteMeeting(id,updateUser=false) {
     }
 
 }
+/**
+ * google image profile have `=s96-c` which makes image smaller. this function just remove it
+ * @param {String} mainString 
+ * @param {String} compareString 
+ * @returns {String} - return mainString if mainString does not contain the compareString. otherwise cut it then return it
+ * 
+ */
+function ProfileImageSizeCutter(mainString, compareString='=s96-c') {
+    const lastSix = mainString.slice(-6);
+    if (lastSix === compareString) {
+        return mainString.slice(0, -6);
+    } else {
+        return mainString;
+    }
+}
 
-
-module.exports = { erroResponse, UpdateHelper, DeleteUser, DeleteMeeting }
+module.exports = { erroResponse, UpdateHelper, DeleteUser, DeleteMeeting,ProfileImageSizeCutter }

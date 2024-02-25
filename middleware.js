@@ -62,6 +62,37 @@ function checkBody(expectedkeys) {
         next()
     }
 }
+/**
+ *check required query parameter.
+ *
+ * @param {Array} expectedkeys - keys of data
+ * @returns 400 if keys does not match. otherwise execute next()
+ */
+function CheckQuery(expectedkeys) {
+    return (req, res, next) => {
+        if (req.method == "GET") {
+            let notfound = new Array()
+            let keys = Object.keys(req.query)
+            if (expectedkeys.length <= keys.length) {
+                expectedkeys.forEach(key => {
+                    let isInside = keys.includes(key)
+                    if (!isInside) {
+                        notfound.push(key)
+                    }
+                })
+                if (notfound.length != 0) {
+                    res.status(400).send({ msg: ` ${notfound.join(",")} notfound.` })
+                    return
+                }
+            } else {
+                console.log(req.body);
+                res.status(400).send({ msg: "expectation failed." })
+                return
+            }
+        }
+        next()
+    }
+}
 
 
-module.exports = { logger, checkBody, emptyBodyChecker, emptyQueryChecker };
+module.exports = { logger, checkBody, emptyBodyChecker, emptyQueryChecker,CheckQuery };

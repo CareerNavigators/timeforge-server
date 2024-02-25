@@ -14,7 +14,12 @@ const {
   emptyBodyChecker,
   emptyQueryChecker,
 } = require("./middleware");
-const { erroResponse, UpdateHelper, DeleteUser } = require("./util");
+const {
+  erroResponse,
+  UpdateHelper,
+  DeleteUser,
+  ProfileImageSizeCutter,
+} = require("./util");
 const app = express();
 const port = process.env.PORT || 5111;
 app.use(cors());
@@ -48,20 +53,22 @@ admin.initializeApp({
 });
 async function run() {
   try {
+
     /**
-     * url: "/user"
-     * method: POST
-     * create user in mongodb database.
-     * req.body:
+     * To create a new user, send a POST request to "/user" endpoint.
+     * This will add the user to the database.
+     *
+     * Request Body (JSON):
      * {
-     *  name:user name, - required
-     *  email: user email, - required
-     *  img_profile: profile picture of user - optional
+     *     "name": "user name", // required
+     *     "email": "user email", // required
+     *     "img_profile": "profile picture of user" // optional
      * }
-     * res:
-     * user data if the user exist otherwise create the user then send the data.
-     * status 201 means created user. 200 means user already exist
-     * if error occur then 'msg' key contains error message
+     *
+     * Response:
+     * If the user already exists, it will return user data with status code 200.
+     * If the user is created successfully, it will return user data with status code 201.
+     * If an error occurs, the response will contain an error message in the 'msg' key.
      */
     app.post(
       "/user",
@@ -70,6 +77,9 @@ async function run() {
       checkBody(["name", "email"]),
       async (req, res) => {
         let t_user = await User.isUserExist(req.body.email);
+        if (req.body?.img_profile) {
+          req.body.img_profile = ProfileImageSizeCutter(req.body.img_profile);
+        }
         if (t_user == null) {
           const user = new User(req.body);
           try {
@@ -84,23 +94,25 @@ async function run() {
       }
     );
     /**
-     * Update user information
-     * url:/user/:id - :id = user id from database
-     * method:patch
-     * req.body:
+     * To update user information, send a PATCH request to "/user/:id" endpoint.
+     * ":id" should be replaced with the user id from the database.
+     *
+     * Request Body (JSON):
      * {
-     *  name: user name
-     *  email: user email
-     *  img_cover: cover photo url
-     *  country : country
-     *  timeZone : timeZone
-     *  img_profile: profile photo url
+     *     "name": "user name",
+     *     "email": "user email",
+     *     "img_cover": "cover photo url",
+     *     "country": "country",
+     *     "timeZone": "timeZone",
+     *     "img_profile": "profile photo url"
      * }
-     * res:
-     * 500 - if anything goes wrong
-     * 400 - update failed hole
-     * 202 - update Successful. return the updated element
+     *
+     * Response:
+     * 500 - Internal Server Error
+     * 400 - Update failed
+     * 202 - Update Successful. Returns the updated element.
      */
+
     app.patch("/user/:id", logger, emptyBodyChecker, async (req, res) => {
       try {
         let user = await User.findById(req.params.id);
@@ -204,6 +216,7 @@ async function run() {
         }
       }
     });
+
     /**
      * create event
      * req.body sample:
@@ -233,7 +246,7 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime",
+        "endTime",,
       ]),
       async (req, res) => {
         let expTime;
@@ -247,10 +260,8 @@ async function run() {
               let t_expTime = dayjs(event, "DDMMYY");
               if (t_expTime.isAfter(expTime)) {
                 expTime = t_expTime;
-                expTime = t_expTime;
               }
             }
-            req.body["expDate"] = expTime.format("DD-MM-YYYY");
             req.body["expDate"] = expTime.format("DD-MM-YYYY");
           }
           const meeting = new Meeting(req.body);
@@ -274,6 +285,8 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
+
+
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
@@ -331,12 +344,13 @@ async function run() {
       }
     });
 
+    //timeline API
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
           Timeline.where("createdBy")
             .equals(req.query.id)
-            .select("-createdBy -desc -events -__v   ")
+            .populate("event", "title desc events")
             .then((result) => {
               if (result.length != 0) {
                 res.status(200).send(result);
@@ -346,10 +360,13 @@ async function run() {
             });
         } else if ((req.query.type = "single")) {
           Timeline.findById(req.query.id)
+            .select("event createdBy timeline")
+            .populate("event", "startTime endTime")
             .then((result) => {
               res.status(200).send(result);
             })
             .catch((e) => {
+              console.log(e.message);
               res.status(404).send({ msg: "Timeline not found." });
             });
         } else {
@@ -357,6 +374,72 @@ async function run() {
         }
       } catch (e) {
         erroResponse(res, e);
+      }
+    });
+
+    app.post(
+      "/timeline",
+      logger,
+      emptyBodyChecker,
+      checkBody(["meeting", "createdBy", "title"]),
+      async (req, res) => {
+        try {
+          const newTimeline = new Timeline(req.body);
+          newTimeline
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    );
+
+    app.patch(
+      "/timeline/:id",
+      logger,
+      emptyQueryChecker,
+      emptyBodyChecker,
+      async (req, res) => {
+        try {
+          const singleTimeline = await Timeline.findById(req.params.id);
+          if (req.query?.type == "add") {
+            singleTimeline.timeline.push(req.body);
+            const result = await singleTimeline.save();
+            res.status(201).send({ result });
+          } else if (req.query?.type == "content") {
+            const timelineItem = singleTimeline.timeline.find(
+              (item) => item._id.toString() === req.body.id
+            );
+            if (timelineItem) {
+              timelineItem.content = req.body.content;
+              await singleTimeline.save(); // Save the parent document after updating the embedded document
+              res.status(200).send({ msg: "Content updated." });
+            } else {
+              res.status(404).send({ msg: "Timeline item not found." });
+            }
+          } else {
+            res.status(400).send({ msg: "Something gone south" });
+          }
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
+
+    app.delete("/timeline/:id", logger, async (req, res) => {
+      try {
+        const singleTimeline = await Timeline.findById(req.params.id);
+        singleTimeline.guest = [];
+        singleTimeline.timeline = [];
+        await singleTimeline.save();
+        res.status(200).send({ msg: "Reset all timeline" });
+      } catch (error) {
+        erroResponse(res, error);
       }
     });
 
@@ -404,6 +487,16 @@ async function run() {
       }
     });
 
+    app.delete("/attendee/:id", logger, async (req, res) => {
+      Attendee.findByIdAndDelete(req.params.id)
+        .then((result) => {
+          res.status(200).send({ msg: `${result.name} deleted successfully` });
+        })
+        .catch((e) => {
+          res.status(400).send({ msg: e.message });
+        });
+    });
+
     app.patch("/attendee/:id", logger, async (req, res) => {
       try {
         const attendee = await Attendee.findById(req.params.id);
@@ -415,16 +508,6 @@ async function run() {
       } catch (error) {
         erroResponse(res, error);
       }
-    });
-
-    app.delete("/attendee/:id", logger, async (req, res) => {
-      Attendee.findByIdAndDelete(req.params.id)
-        .then((result) => {
-          res.status(200).send({ msg: `${result.name} deleted successfully` });
-        })
-        .catch((e) => {
-          res.status(400).send({ msg: e.message });
-        });
     });
 
     app.post(
@@ -612,7 +695,7 @@ async function run() {
         });
     });
 
-    app.get("/admin/users", logger, async (req, res) => {
+    app.get("/admin/users", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -629,7 +712,7 @@ async function run() {
       }
     });
 
-    app.get("/admin/meetings", logger, async (req, res) => {
+    app.get("/admin/meetings", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -646,7 +729,7 @@ async function run() {
       }
     });
 
-    app.get("/admin/attendee", logger, async (req, res) => {
+    app.get("/admin/attendee", logger, emptyQueryChecker, async (req, res) => {
       try {
         const { page = 1, limit = 15 } = req.query;
         const options = {
@@ -655,12 +738,25 @@ async function run() {
           page: parseInt(page),
           limit: parseInt(limit),
         };
-
         const attendeeData = await Attendee.paginate({}, options);
-
         res.status(200).send(attendeeData);
       } catch (e) {
         res.status(500).send({ msg: e.message });
+      }
+    });
+    app.get("/admin/timeline", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "event createdAt",
+          populate: { path: "event", select: "title" },
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+        const timelineData = await Timeline.paginate({}, options);
+        res.status(200).send(timelineData);
+      } catch (e) {
+        erroResponse(res, e);
       }
     });
 
@@ -690,6 +786,12 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
+      User.find().then((result) => {
+        for (const user of result) {
+          user.img_profile = ProfileImageSizeCutter(user.img_profile);
+          user.save();
+        }
+      });
       res.send({ msg: "DONE" });
     });
 
@@ -704,6 +806,85 @@ async function run() {
           erroResponse(res, e);
         });
     });
+    app.get("/guest", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const timeline = await Timeline.findById(req.query.timelineid)
+          .select("guest")
+          .populate("guest", "img_profile name email");
+        if (timeline) {
+          res.status(201).send(timeline);
+        } else {
+          res.status(404).send({ msg: "Timeline not found" });
+        }
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
+    app.post(
+      // its post but working as get
+      "/guest",
+      logger,
+      emptyBodyChecker,
+      checkBody(["text"]),
+      async (req, res) => {
+        try {
+          const regex = new RegExp(req.body.text, "i"); // Case-insensitive regex
+          const result = await User.find({
+            $or: [{ name: regex }, { email: regex }],
+          }).select("img_profile email name");
+          res.status(200).send(result);
+        } catch (e) {
+          erroResponse(res, e); // Assuming erroResponse is a function you've defined to handle errors
+        }
+      }
+    );
+    /**
+     * params id is the id of the timeline document. and body id is the user id from User collection as guest
+     */
+    app.patch(
+      "/addguest/:id",
+      logger,
+      emptyBodyChecker,
+      checkBody(["id"]),
+      async (req, res) => {
+        try {
+          const timeline = await Timeline.findById(req.params.id);
+          if (timeline) {
+            timeline.guest.push(req.body.id);
+            const result = await timeline.save();
+            res.status(201).send(result);
+          } else {
+            res.status(400).send({ msg: "Add failed." });
+          }
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    );
+    app.delete(
+      "/guest/:id",
+      logger,
+      emptyQueryChecker,
+      async (req, res) => {
+        try {
+          const timeline = await Timeline.findById(req.params.id);
+          if (timeline) {
+            const index = req.query.index;
+            if (index >=  0 && index < timeline.guest.length) {
+              timeline.guest.splice(index,  1); 
+              const result = await timeline.save();
+              res.status(200).send(result);
+            } else {
+              res.status(400).send({ msg: "Invalid index." });
+            }
+          } else {
+            res.status(400).send({ msg: "Delete failed." });
+          }
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    )
   } catch (e) {
     console.log(e);
     return;

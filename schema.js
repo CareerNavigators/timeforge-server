@@ -115,6 +115,8 @@ const meetingSchema = new mongo.Schema(
     offline: {
       type: Boolean,
       default: true,
+      type: Boolean,
+      default: true,
     },
     startTime: {
       type: String,
@@ -132,7 +134,7 @@ const meetingSchema = new mongo.Schema(
 meetingSchema.plugin(mongoosePaginate);
 meetingSchema.post("save", humanizeErrors);
 meetingSchema.post("update", humanizeErrors);
-meetingSchema.pre("save", function (next) {
+meetingSchema.pre("save", async function (next) {
   try {
     if (this.isNew) {
       User.findById(this.createdBy).then(async (result) => {
@@ -141,6 +143,17 @@ meetingSchema.pre("save", function (next) {
         ).length;
         await result.save();
       });
+      const newNote = new Note({
+        title: this.title,
+        createdBy: this.createdBy,
+        meeting: this._id,
+      });
+      await newNote.save();
+      const newTimeline = new Timeline({
+        event: this._id,
+        createdBy: this.createdBy,
+      });
+      let timelineResult=await newTimeline.save();
     }
     next();
   } catch (e) {
@@ -148,18 +161,6 @@ meetingSchema.pre("save", function (next) {
     console.log(e.message);
   }
   next();
-});
-meetingSchema.post("save", async function (doc) {
-  try {
-    const newNote = new Note({
-      title: doc.title,
-      createdBy: doc.createdBy,
-      meeting: doc._id,
-    });
-    await newNote.save();
-  } catch (e) {
-    console.log(e.message);
-  }
 });
 meetingSchema.post("findOneAndDelete", async function (doc, next) {
   try {
@@ -171,6 +172,7 @@ meetingSchema.post("findOneAndDelete", async function (doc, next) {
       await user.save();
     }
     await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
+    await Timeline.findOneAndDelete({ event: doc._id, createdBy: doc.createdBy });
     await Attendee.deleteMany({ meeting: doc._id });
     console.log("findOneAndDelete");
     next();
@@ -207,6 +209,7 @@ const attendeeSchema = new mongo.Schema(
     slot: {
       type: mongo.Schema.Types.Mixed,
       require: true,
+      default: {}
     },
   },
   {
@@ -301,12 +304,19 @@ const timeLineSchema = new mongo.Schema(
   {
     event: {
       type: mongo.Schema.Types.ObjectId,
+      ref:"Meeting",
       required: true,
+    },
+    createdBy: {
+      type: mongo.Schema.Types.ObjectId,
+      ref: "User",
     },
     guest: {
       type: [mongo.Schema.Types.ObjectId],
+      ref:"User",
+      default: [],
     },
-    timline: {
+    timeline: {
       type: [
         {
           startTime: String,
@@ -314,13 +324,16 @@ const timeLineSchema = new mongo.Schema(
           content: String,
         },
       ],
+      default: [],
     },
   },
   {
     timestamps: true,
   }
 );
+timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
-const Timeline = mongo.model("Timeline", timeLineSchema);
-module.exports = { User, Meeting, Attendee, Note, Timeline, Ecommerce, Cart };
+
+const Timeline = mongo.model("Timeline",  timeLineSchema);;
+module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart };
