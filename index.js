@@ -7,7 +7,7 @@ const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
-const { User, Meeting, Attendee, Note, Timeline } = require("./schema");
+const { User, Meeting, Attendee, Note, Ecommerce, Cart } = require("./schema");
 const {
   logger,
   checkBody,
@@ -246,7 +246,7 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime",
+        "endTime",,
       ]),
       async (req, res) => {
         let expTime;
@@ -259,7 +259,6 @@ async function run() {
             for (const event of dateKeys) {
               let t_expTime = dayjs(event, "DDMMYY");
               if (t_expTime.isAfter(expTime)) {
-                expTime = t_expTime;
                 expTime = t_expTime;
               }
             }
@@ -577,6 +576,75 @@ async function run() {
         UpdateHelper(note, req.body, res);
       } else {
         res.status(400).send({ msg: "Note not found" });
+      }
+    });
+
+    // ecommerce
+    app.post(
+      "/ecommerce",
+      logger,
+      emptyBodyChecker,
+      checkBody(["title", "price", "img"]),
+      async (req, res) => {
+        //  const product = req.body;
+        //  const result = await Ecommerce.save(product);
+        //  res.send(result);
+        try {
+          const product = new Ecommerce(req.body);
+          product
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(response, e);
+        }
+      }
+    );
+
+    app.get("/ecommerce", logger, async (req, res) => {
+      try {
+        const ecommerceItems = await Ecommerce.find();
+        // res.status(200).json(ecommerceItems);
+        console.log(ecommerceItems);
+        res.send(ecommerceItems);
+      } catch (error) {
+        res.status(500).json({ message: "Error fetching ecommerce items" });
+      }
+    });
+
+    // cart
+    app.post(
+      "/cart",
+      emptyBodyChecker,
+      checkBody(["title", "isSold", "price", "productId", "userId", "img"]),
+      async (req, res) => {
+        try {
+          const cart = new Cart(req.body);
+          cart
+            .save()
+            .then((result) => {
+              res.status(201).send(result);
+            })
+            .catch((e) => {
+              erroResponse(res, e);
+            });
+        } catch (e) {
+          erroResponse(response, e);
+        }
+      }
+    );
+
+    app.get("/cart", logger, async (req, res) => {
+      try {
+        const cartItems = await Cart.find();
+        console.log(cartItems);
+        res.send(cartItems);
+      } catch (error) {
+        res.status(404).send({ message: "cart items not found" });
       }
     });
 
