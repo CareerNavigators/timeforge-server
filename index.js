@@ -53,6 +53,7 @@ admin.initializeApp({
 });
 async function run() {
   try {
+
     /**
      * To create a new user, send a POST request to "/user" endpoint.
      * This will add the user to the database.
@@ -286,6 +287,7 @@ async function run() {
      * 404 - not found event
      */
 
+
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
         if (req.query.type == "all") {
@@ -349,7 +351,7 @@ async function run() {
         if (req.query.type == "all") {
           Timeline.where("createdBy")
             .equals(req.query.id)
-            .select("-createdBy -desc -events -__v   ")
+            .populate("event", "title desc events")
             .then((result) => {
               if (result.length != 0) {
                 res.status(200).send(result);

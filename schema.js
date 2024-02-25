@@ -148,7 +148,7 @@ meetingSchema.pre("save", async function (next) {
         createdBy: this.createdBy,
         meeting: this._id,
       });
-      let noteResult= await newNote.save();
+      await newNote.save();
       const newTimeline = new Timeline({
         event: this._id,
         createdBy: this.createdBy,
@@ -209,7 +209,7 @@ const attendeeSchema = new mongo.Schema(
     slot: {
       type: mongo.Schema.Types.Mixed,
       require: true,
-      default: {},
+      default: {}
     },
   },
   {
