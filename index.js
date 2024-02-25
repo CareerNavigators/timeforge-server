@@ -342,7 +342,7 @@ async function run() {
         if (req.query.type == "all") {
           Timeline.where("createdBy")
             .equals(req.query.id)
-            .select("-createdBy -desc -events -__v   ")
+            .populate("event", "title desc events")
             .then((result) => {
               if (result.length != 0) {
                 res.status(200).send(result);
