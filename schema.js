@@ -285,20 +285,11 @@ const cartSchema = new mongo.Schema({
     type: String
   },
   productId:{
-    type: String,
-  },
-  title: {
-    type: String,
+    type:  [mongo.Schema.Types.ObjectId],
   },
   isSold: {
     type: Boolean,
     default: false,
-  },
-  img: {
-    type: String,
-  },
-  price: {
-    type: Number,
   },
 });
 const Cart = mongo.model("cart", cartSchema);

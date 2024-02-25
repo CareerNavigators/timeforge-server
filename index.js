@@ -555,17 +555,13 @@ async function run() {
       }
     );
 
-    app.get("/cart", logger, emptyQueryChecker, async (req, res) => {
-      if (req.query?.userid) {
-        Cart.where("productId")
-          .equals(req.query?.userid)
-          .then((result) => {
-            if (result.length != 0) {
-              res.status(200).send(result);
-            } else {
-              res.status(404).send({ msg: "don't find cart item" });
-            }
-          });
+    app.get("/cart", logger, async (req, res) => {
+      try {
+        const cartItems = await Cart.find();
+        console.log(cartItems);
+        res.send(cartItems);
+      } catch (error) {
+        res.status(404).send({ message: "cart items not found" });
       }
     });
 
