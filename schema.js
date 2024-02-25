@@ -282,6 +282,7 @@ const timeLineSchema = new mongo.Schema(
     },
     guest: {
       type: [mongo.Schema.Types.ObjectId],
+      ref:"User",
       default: [],
     },
     timeline: {
