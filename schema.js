@@ -266,6 +266,9 @@ const noteSchema = new mongo.Schema(
     timestamps: true,
   }
 );
+noteSchema.post("save", humanizeErrors);
+noteSchema.post("update", humanizeErrors);
+const Note = mongo.model("Note", noteSchema);
 
 const ecommerceSchema = new mongo.Schema({
   title: {
@@ -280,7 +283,12 @@ const ecommerceSchema = new mongo.Schema({
   price: {
     type: Number,
   },
+  isSoldOut:{
+    type:Boolean,
+    default:false,
+  }
 });
+ecommerceSchema.plugin(mongoosePaginate);
 const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
 
 const cartSchema = new mongo.Schema({
@@ -297,9 +305,7 @@ const cartSchema = new mongo.Schema({
 });
 const Cart = mongo.model("cart", cartSchema);
 
-noteSchema.post("save", humanizeErrors);
-noteSchema.post("update", humanizeErrors);
-const Note = mongo.model("Note", noteSchema);
+
 const timeLineSchema = new mongo.Schema(
   {
     event: {

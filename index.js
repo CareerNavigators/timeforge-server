@@ -7,7 +7,15 @@ const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
-const { User, Meeting, Attendee, Note, Ecommerce, Cart } = require("./schema");
+const {
+  User,
+  Meeting,
+  Attendee,
+  Note,
+  Ecommerce,
+  Cart,
+  Timeline,
+} = require("./schema");
 const {
   logger,
   checkBody,
@@ -53,7 +61,6 @@ admin.initializeApp({
 });
 async function run() {
   try {
-
     /**
      * To create a new user, send a POST request to "/user" endpoint.
      * This will add the user to the database.
@@ -246,7 +253,8 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime",,
+        "endTime",
+        ,
       ]),
       async (req, res) => {
         let expTime;
@@ -285,7 +293,6 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
-
 
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
@@ -615,7 +622,22 @@ async function run() {
         res.status(500).json({ message: "Error fetching ecommerce items" });
       }
     });
-
+    app.patch("/ecommerce/:id", logger, emptyBodyChecker, async (req, res) => {
+      try {
+        const item = await Ecommerce.findById(req.params.id);
+        UpdateHelper(item, req.body, res);
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
+    app.delete("/ecommerce/:id", logger, async (req, res) => {
+      try {
+        await Ecommerce.findByIdAndDelete(req.params.id)
+        res.status(200).send({msg:"Delete Successful!"})
+      } catch (e) {
+        erroResponse(res,e)
+      }
+    });
     // cart
     app.post(
       "/cart",
@@ -760,6 +782,21 @@ async function run() {
       }
     });
 
+    app.get("/admin/ecommerce", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "title img price isSoldOut",
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+        const ecommerceData = await Ecommerce.paginate({}, options);
+        res.status(200).send(ecommerceData);
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
+
     app.post(
       "/sendmail",
       logger,
@@ -786,10 +823,10 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
-      User.find().then((result) => {
-        for (const user of result) {
-          user.img_profile = ProfileImageSizeCutter(user.img_profile);
-          user.save();
+      Ecommerce.find().then(async (result) => {
+        for (const item of result) {
+          item.isSoldOut = Math.random() > 0.5 ? true : false;
+          await item.save();
         }
       });
       res.send({ msg: "DONE" });
@@ -821,7 +858,7 @@ async function run() {
       }
     });
     app.post(
-      // its post but working as get
+      // its post but working as search get
       "/guest",
       logger,
       emptyBodyChecker,
@@ -861,30 +898,25 @@ async function run() {
         }
       }
     );
-    app.delete(
-      "/guest/:id",
-      logger,
-      emptyQueryChecker,
-      async (req, res) => {
-        try {
-          const timeline = await Timeline.findById(req.params.id);
-          if (timeline) {
-            const index = req.query.index;
-            if (index >=  0 && index < timeline.guest.length) {
-              timeline.guest.splice(index,  1); 
-              const result = await timeline.save();
-              res.status(200).send(result);
-            } else {
-              res.status(400).send({ msg: "Invalid index." });
-            }
+    app.delete("/guest/:id", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const timeline = await Timeline.findById(req.params.id);
+        if (timeline) {
+          const index = req.query.index;
+          if (index >= 0 && index < timeline.guest.length) {
+            timeline.guest.splice(index, 1);
+            const result = await timeline.save();
+            res.status(200).send(result);
           } else {
-            res.status(400).send({ msg: "Delete failed." });
+            res.status(400).send({ msg: "Invalid index." });
           }
-        } catch (e) {
-          erroResponse(res, e);
+        } else {
+          res.status(400).send({ msg: "Delete failed." });
         }
+      } catch (e) {
+        erroResponse(res, e);
       }
-    )
+    });
   } catch (e) {
     console.log(e);
     return;
