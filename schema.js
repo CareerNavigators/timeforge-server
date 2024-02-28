@@ -148,7 +148,7 @@ meetingSchema.pre("save", async function (next) {
         createdBy: this.createdBy,
         meeting: this._id,
       });
-      let noteResult= await newNote.save();
+      await newNote.save();
       const newTimeline = new Timeline({
         event: this._id,
         createdBy: this.createdBy,
@@ -209,7 +209,7 @@ const attendeeSchema = new mongo.Schema(
     slot: {
       type: mongo.Schema.Types.Mixed,
       require: true,
-      default: {},
+      default: {}
     },
   },
   {
@@ -266,6 +266,37 @@ const noteSchema = new mongo.Schema(
     timestamps: true,
   }
 );
+
+const ecommerceSchema = new mongo.Schema({
+  title: {
+    type: String,
+  },
+  description: {
+    type: String,
+  },
+  img: {
+    type: String,
+  },
+  price: {
+    type: Number,
+  },
+});
+const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
+
+const cartSchema = new mongo.Schema({
+  userId:{
+    type: String
+  },
+  productId:{
+    type:  [mongo.Schema.Types.ObjectId],
+  },
+  isSold: {
+    type: Boolean,
+    default: false,
+  },
+});
+const Cart = mongo.model("cart", cartSchema);
+
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
 const Note = mongo.model("Note", noteSchema);
@@ -304,5 +335,5 @@ timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
 
-const Timeline = mongo.model("Timeline", timeLineSchema);
-module.exports = { User, Meeting, Attendee, Note, Timeline };
+const Timeline = mongo.model("Timeline",  timeLineSchema);;
+module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart };
