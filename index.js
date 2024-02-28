@@ -751,7 +751,7 @@ async function run() {
       }
     });
     app.post(
-      // its post but working as get
+      // its post but working as search get
       "/guest",
       logger,
       emptyBodyChecker,
