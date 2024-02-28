@@ -55,6 +55,10 @@ const userSchema = new mongo.Schema(
       type: Number,
       default: 0,
     },
+    isRefreshToken:{
+      type:Boolean,
+      default:false
+    }
   },
   {
     timestamps: true,
@@ -304,8 +308,6 @@ const cartSchema = new mongo.Schema({
   },
 });
 const Cart = mongo.model("cart", cartSchema);
-
-
 const timeLineSchema = new mongo.Schema(
   {
     event: {
@@ -340,6 +342,53 @@ const timeLineSchema = new mongo.Schema(
 timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
+const Timeline = mongo.model("Timeline",  timeLineSchema);
+const tokenSchema = new mongo.Schema({
+  user:{
+    type:mongo.Schema.Types.ObjectId,
+    ref:"User",
+    required:true,
+    unique:true
+  },
+  accessToken:{
+    type:String,
+    trim:true,
+    default:""
+  },
+  accessTokenTime:{
+    type:Number,
+    default:0
+  },
+  refreshToken:{
+    type:String,
+    trim:true,
+    default:""
+  }
+},{
+  timestamps:true,
+})
+timeLineSchema.plugin(mongoosePaginate);
+tokenSchema.post("save", humanizeErrors);
+tokenSchema.post("update", humanizeErrors);
+tokenSchema.pre("save",async function (next) {
+  try {
+    if (this.isNew) {
+      User.findById(this.user).then(async result=>{
+        if (result) {
+          result.isRefreshToken=true
+          await result.save()
+        }
+        
+      })
+    }
+    next()
+  } catch (e) {
+    console.log(e.message);
+    next()
+  }
+  next()
+})
 
-const Timeline = mongo.model("Timeline",  timeLineSchema);;
-module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart };
+const Token= mongo.model("Token",tokenSchema)
+
+module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart,Token };
