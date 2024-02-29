@@ -1,10 +1,11 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
-const { google } = require('googleapis');
+const { google } = require("googleapis");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
@@ -62,13 +63,10 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-
 const clientId = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-const scopes = [
-  'https://www.googleapis.com/auth/calendar'
-];
+const scopes = ["https://www.googleapis.com/auth/calendar"];
 
 const oauth2Client = new google.auth.OAuth2(
   clientId,
@@ -649,10 +647,10 @@ async function run() {
     });
     app.delete("/ecommerce/:id", logger, async (req, res) => {
       try {
-        await Ecommerce.findByIdAndDelete(req.params.id)
-        res.status(200).send({msg:"Delete Successful!"})
+        await Ecommerce.findByIdAndDelete(req.params.id);
+        res.status(200).send({ msg: "Delete Successful!" });
       } catch (e) {
-        erroResponse(res,e)
+        erroResponse(res, e);
       }
     });
     // cart
@@ -840,12 +838,12 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
-      User.find().then(async result=>{
+      User.find().then(async (result) => {
         for (const user of result) {
-          user.isRefreshToken=false
-          await user.save()
+          user.isRefreshToken = false;
+          await user.save();
         }
-      })
+      });
       res.send({ msg: "DONE" });
     });
 
@@ -935,36 +933,72 @@ async function run() {
       }
     });
 
-    app.get('/oauth2callback',logger,emptyQueryChecker, async (req, res) => {
+    // app.get('/oauth2callback',logger,emptyQueryChecker, async (req, res) => {
+    //   try {
+    //     const result= await oauth2Client.getToken(req.query.code)
+    //     oauth2Client.setCredentials(result.tokens)
+    //     const newToken= new Token({
+    //       user:req.query.state,
+    //       accessToken:result.tokens.access_token,
+    //       expireDate:result.tokens.expiry_date,
+    //       refreshToken:result.tokens.refresh_token,
+    //     })
+    //     newToken.save()
+    //     res.sendFile(path.join(__dirname, 'closewindows.html'));
+    //   } catch (error) {
+    //     erroResponse(res,error)
+    //   }
+    // });
+    app.post(
+      "/insertToken",
+      logger,
+      emptyBodyChecker,
+      checkBody(["code", "id"]),
+      async (req, res) => {
+        try {
+          const isToken = await Token.where("user").equals(req.body.id);
+          if (isToken && isToken.length == 0) {
+            const result = await oauth2Client.getToken(req.body.code);
+            console.log("~ result", result)
+            if (result?.tokens?.access_token) {
+              oauth2Client.setCredentials(result.tokens);
+            const newToken = new Token({
+              user: req.body.id,
+              accessToken: result.tokens.access_token,
+              expireDate: result.tokens.expiry_date,
+              refreshToken: result.tokens.refresh_token,
+            });
+            newToken.save();
+            res.status(201).send({msg:"Successfully created"})
+            }else{
+              res.status(400).send({msg:"Token Failed to get"})
+            }
+          } else {
+            res.status(400).send({ msg: "Token already exist for this user" });
+          }
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
+    app.get("/authorization", logger, emptyQueryChecker, async (req, res) => {
       try {
-        const result= await oauth2Client.getToken(req.query.code)
-        oauth2Client.setCredentials(result.tokens)
-        const newToken= new Token({
-          user:req.query.state,
-          accessToken:result.tokens.access_token,
-          expireDate:result.tokens.expiry_date,
-          refreshToken:result.tokens.refresh_token,
-        })
-        newToken.save()
-        res.send({result})
+        const isToken = await Token.where("user").equals(req.query.id);
+        if (isToken && isToken.length == 0) {
+          const authorizationUrl = oauth2Client.generateAuthUrl({
+            access_type: "offline",
+            scope: scopes,
+            include_granted_scopes: true,
+            state: JSON.stringify({ id: req.query.id, route: req.query.route }),
+          });
+          res.send(authorizationUrl);
+        } else {
+          res.status(400).send({ msg: "Token already exist for this user" });
+        }
       } catch (error) {
-        erroResponse(res,error)
+        erroResponse(res, error);
       }
     });
-
-    app.get('/authorization',logger,emptyQueryChecker, async (req, res) => {
-      try {
-        const authorizationUrl = oauth2Client.generateAuthUrl({
-          access_type: 'offline',
-          scope: scopes,
-          include_granted_scopes: true,
-          state:req.query.id
-        });
-        res.send({authorizationUrl})
-      } catch (error) {
-        erroResponse(res,error)
-      }
-    })
   } catch (e) {
     console.log(e);
     return;
