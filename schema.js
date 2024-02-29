@@ -355,7 +355,7 @@ const tokenSchema = new mongo.Schema({
     trim:true,
     default:""
   },
-  accessTokenTime:{
+  expireDate:{// unix timestamp
     type:Number,
     default:0
   },

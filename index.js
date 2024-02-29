@@ -4,6 +4,7 @@ const cors = require("cors");
 const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const { google } = require('googleapis');
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
@@ -15,6 +16,7 @@ const {
   Ecommerce,
   Cart,
   Timeline,
+  Token,
 } = require("./schema");
 const {
   logger,
@@ -59,6 +61,21 @@ const serviceAccount = {
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
+
+const clientId = process.env.GOOGLE_CLIENT_ID;
+const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+const scopes = [
+  'https://www.googleapis.com/auth/calendar'
+];
+
+const oauth2Client = new google.auth.OAuth2(
+  clientId,
+  clientSecret,
+  redirectUri
+);
+
 async function run() {
   try {
     /**
@@ -823,12 +840,12 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
-      Ecommerce.find().then(async (result) => {
-        for (const item of result) {
-          item.isSoldOut = Math.random() > 0.5 ? true : false;
-          await item.save();
+      User.find().then(async result=>{
+        for (const user of result) {
+          user.isRefreshToken=false
+          await user.save()
         }
-      });
+      })
       res.send({ msg: "DONE" });
     });
 
@@ -917,6 +934,37 @@ async function run() {
         erroResponse(res, e);
       }
     });
+
+    app.get('/oauth2callback',logger,emptyQueryChecker, async (req, res) => {
+      try {
+        const result= await oauth2Client.getToken(req.query.code)
+        oauth2Client.setCredentials(result.tokens)
+        const newToken= new Token({
+          user:req.query.state,
+          accessToken:result.tokens.access_token,
+          expireDate:result.tokens.expiry_date,
+          refreshToken:result.tokens.refresh_token,
+        })
+        newToken.save()
+        res.send({result})
+      } catch (error) {
+        erroResponse(res,error)
+      }
+    });
+
+    app.get('/authorization',logger,emptyQueryChecker, async (req, res) => {
+      try {
+        const authorizationUrl = oauth2Client.generateAuthUrl({
+          access_type: 'offline',
+          scope: scopes,
+          include_granted_scopes: true,
+          state:req.query.id
+        });
+        res.send({authorizationUrl})
+      } catch (error) {
+        erroResponse(res,error)
+      }
+    })
   } catch (e) {
     console.log(e);
     return;
