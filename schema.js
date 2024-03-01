@@ -59,11 +59,6 @@ const userSchema = new mongo.Schema(
       type: Boolean,
       default: false,
     },
-    calendarId: {
-      type: String,
-      trim: true,
-      default: "",
-    },
   },
   {
     timestamps: true,
@@ -403,28 +398,37 @@ tokenSchema.pre("save", async function (next) {
 
 const Token = mongo.model("Token", tokenSchema);
 
-const googleCalendarSchema = new mongo.Schema({
-  event: {
-    type: mongo.Schema.Types.ObjectId,
-    ref: "Meeting",
-  },
-  googleEvents: [
-    {
-      htmlLink: {
-        type: String,
-        trim: true,
-      },
-      id: {
-        type: String,
-        trim: true,
-      },
+const googleCalendarSchema = new mongo.Schema(
+  {
+    event: {
+      type: mongo.Schema.Types.ObjectId,
+      ref: "Meeting",
     },
-  ],
-
-},{
-  timestamps:true
-});
-
+    googleEvents: [
+      {
+        htmlLink: {
+          type: String,
+          trim: true,
+        },
+        id: {
+          type: String,
+          trim: true,
+        },
+        meetLink: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
+  },
+  {
+    timestamps: true,
+  }
+);
+const GoogleCalendarEvent = mongo.model(
+  "GoogleCalendarEvent",
+  googleCalendarSchema
+);
 module.exports = {
   User,
   Meeting,
@@ -434,4 +438,5 @@ module.exports = {
   Ecommerce,
   Cart,
   Token,
+  GoogleCalendarEvent,
 };

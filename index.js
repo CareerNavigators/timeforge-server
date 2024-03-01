@@ -19,6 +19,7 @@ const {
   Cart,
   Timeline,
   Token,
+  GoogleCalendarEvent,
 } = require("./schema");
 const {
   logger,
@@ -944,9 +945,19 @@ async function run() {
           if (isToken.length == 0) {
             const result = await oauth2Client.getToken(req.body.code);
             if (result?.tokens?.access_token) {
+              oauth2Client.setCredentials({
+                access_token: result?.tokens?.access_token,
+                refresh_token: result?.tokens?.refresh_token,
+              });
+              const oauth2 = google.oauth2({
+                auth: oauth2Client,
+                version: "v2",
+              });
+              const userInfo = await oauth2.userinfo.get();
               const newToken = new Token({
                 user: req.body.id,
                 refreshToken: result.tokens.refresh_token,
+                registeredEmail: userInfo.data.email,
               });
               await newToken.save();
               res.status(201).send({ msg: "Successfully created" });
@@ -1015,7 +1026,7 @@ async function run() {
     });
 
     app.post(
-      "/insertocalendar",
+      "/insertcalendar",
       logger,
       emptyBodyChecker,
       checkBody(["event"]),
@@ -1038,7 +1049,7 @@ async function run() {
             for (const calendar of calendars) {
               if (calendar.summary === calendarName) {
                 isCalendarExist = true;
-                calendarId = calendar.calendarId;
+                calendarId = calendar.id;
                 break;
               }
             }
@@ -1049,39 +1060,40 @@ async function run() {
                   "This Calendar contains all the events from TimeForge",
                 timeZone: "Asia/Dhaka",
               };
-              calendar.calendars.insert(
-                {
+              try {
+                const result = await calendar.calendars.insert({
                   auth: oauth2Client,
                   resource: newCalendar,
-                },
-                (err, res) => {
-                  if (err) {
-                    res.status(400).send({ msg: err.message });
-                  } else {
-                    calendarId = res.data.id;
-                  }
-                }
-              );
+                });
+                calendarId = result.data.id;
+              } catch (error) {
+                
+                return res.status(400).send({ msg: error.message });
+              }
             }
-            calendar.events.insert(
-              {
+            try {
+              const result = await calendar.events.insert({
                 auth: oauth2Client,
                 calendarId: calendarId,
                 resource: req.body.event,
-              },
-              (err, res) => {
-                if (err) {
-                  res.status(400).send({ msg: err.message });
-                } else {
-                  res
-                    .status(201)
-                    .send({
-                      htmlLink: res.data.htmlLink,
-                      eventId: res.data.id,
-                    });
-                }
-              }
-            );
+              });
+              const newGoogleEvent = new GoogleCalendarEvent({
+                event: req.body.eventId,
+                googleEvents: [
+                  {
+                    htmlLink: result.data.htmlLink,
+                    id: result.data.id,
+                    meetLink: result.data.hangoutLink,
+                  },
+                ],
+              });
+              await newGoogleEvent.save();
+              res.status(201).send({
+                msg: "Event Successfully Created",
+              });
+            } catch (error) {
+              res.status(400).send({ msg: error.message });
+            }
           } else {
             res.status(400).send({ msg: "Authorize First" });
           }
