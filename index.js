@@ -933,7 +933,6 @@ async function run() {
         erroResponse(res, e);
       }
     });
-
     app.post(
       "/insertToken",
       logger,
@@ -947,7 +946,6 @@ async function run() {
             if (result?.tokens?.access_token) {
               const newToken = new Token({
                 user: req.body.id,
-                accessToken: result.tokens.access_token,
                 refreshToken: result.tokens.refresh_token,
               });
               await newToken.save();
