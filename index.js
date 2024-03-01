@@ -6,6 +6,7 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const { google } = require("googleapis");
+const calendar = google.calendar("v3");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
@@ -933,22 +934,6 @@ async function run() {
       }
     });
 
-    // app.get('/oauth2callback',logger,emptyQueryChecker, async (req, res) => {
-    //   try {
-    //     const result= await oauth2Client.getToken(req.query.code)
-    //     oauth2Client.setCredentials(result.tokens)
-    //     const newToken= new Token({
-    //       user:req.query.state,
-    //       accessToken:result.tokens.access_token,
-    //       expireDate:result.tokens.expiry_date,
-    //       refreshToken:result.tokens.refresh_token,
-    //     })
-    //     newToken.save()
-    //     res.sendFile(path.join(__dirname, 'closewindows.html'));
-    //   } catch (error) {
-    //     erroResponse(res,error)
-    //   }
-    // });
     app.post(
       "/insertToken",
       logger,
@@ -957,21 +942,18 @@ async function run() {
       async (req, res) => {
         try {
           const isToken = await Token.where("user").equals(req.body.id);
-          if (isToken && isToken.length == 0) {
+          if (isToken.length == 0) {
             const result = await oauth2Client.getToken(req.body.code);
-            console.log("~ result", result)
             if (result?.tokens?.access_token) {
-              oauth2Client.setCredentials(result.tokens);
-            const newToken = new Token({
-              user: req.body.id,
-              accessToken: result.tokens.access_token,
-              expireDate: result.tokens.expiry_date,
-              refreshToken: result.tokens.refresh_token,
-            });
-            newToken.save();
-            res.status(201).send({msg:"Successfully created"})
-            }else{
-              res.status(400).send({msg:"Token Failed to get"})
+              const newToken = new Token({
+                user: req.body.id,
+                accessToken: result.tokens.access_token,
+                refreshToken: result.tokens.refresh_token,
+              });
+              await newToken.save();
+              res.status(201).send({ msg: "Successfully created" });
+            } else {
+              res.status(400).send({ msg: "Token Failed to get" });
             }
           } else {
             res.status(400).send({ msg: "Token already exist for this user" });
@@ -981,24 +963,135 @@ async function run() {
         }
       }
     );
+    app.post(
+      "/getToken",
+      logger,
+      emptyBodyChecker,
+      checkBody(["code"]),
+      async (req, res) => {
+        try {
+          const result = await oauth2Client.getToken(req.body.code);
+          res.send({
+            token: result.tokens.access_token,
+            exptime: result.tokens.expiry_date,
+          });
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
     app.get("/authorization", logger, emptyQueryChecker, async (req, res) => {
       try {
-        const isToken = await Token.where("user").equals(req.query.id);
-        if (isToken && isToken.length == 0) {
+        if (req.query.access_type == "online") {
           const authorizationUrl = oauth2Client.generateAuthUrl({
-            access_type: "offline",
+            access_type: req.query.access_type,
             scope: scopes,
             include_granted_scopes: true,
-            state: JSON.stringify({ id: req.query.id, route: req.query.route }),
+            state: JSON.stringify({
+              route: req.query.route,
+              access_type: req.query.access_type,
+            }),
           });
           res.send(authorizationUrl);
         } else {
-          res.status(400).send({ msg: "Token already exist for this user" });
+          const isToken = await Token.where("user").equals(req.query.id);
+          if (isToken && isToken.length == 0) {
+            const authorizationUrl = oauth2Client.generateAuthUrl({
+              access_type: req.query.access_type,
+              scope: scopes,
+              include_granted_scopes: true,
+              state: JSON.stringify({
+                id: req.query.id,
+                route: req.query.route,
+                access_type: req.query.access_type,
+              }),
+            });
+            res.send(authorizationUrl);
+          } else {
+            res.status(400).send({ msg: "Token already exist for this user" });
+          }
         }
       } catch (error) {
         erroResponse(res, error);
       }
     });
+
+    app.post(
+      "/insertocalendar",
+      logger,
+      emptyBodyChecker,
+      checkBody(["event"]),
+      async (req, res) => {
+        try {
+          const userToken = await Token.findOne({
+            user: new mongo.Types.ObjectId(req.body.userId),
+          });
+          if (userToken) {
+            oauth2Client.setCredentials({
+              refresh_token: userToken.refreshToken,
+            });
+            const calendarName = "TimeForge";
+            const response = await calendar.calendarList.list({
+              auth: oauth2Client,
+            });
+            const calendars = response.data.items;
+            let isCalendarExist = false;
+            let calendarId;
+            for (const calendar of calendars) {
+              if (calendar.summary === calendarName) {
+                isCalendarExist = true;
+                calendarId = calendar.calendarId;
+                break;
+              }
+            }
+            if (!isCalendarExist) {
+              const newCalendar = {
+                summary: calendarName,
+                description:
+                  "This Calendar contains all the events from TimeForge",
+                timeZone: "Asia/Dhaka",
+              };
+              calendar.calendars.insert(
+                {
+                  auth: oauth2Client,
+                  resource: newCalendar,
+                },
+                (err, res) => {
+                  if (err) {
+                    res.status(400).send({ msg: err.message });
+                  } else {
+                    calendarId = res.data.id;
+                  }
+                }
+              );
+            }
+            calendar.events.insert(
+              {
+                auth: oauth2Client,
+                calendarId: calendarId,
+                resource: req.body.event,
+              },
+              (err, res) => {
+                if (err) {
+                  res.status(400).send({ msg: err.message });
+                } else {
+                  res
+                    .status(201)
+                    .send({
+                      htmlLink: res.data.htmlLink,
+                      eventId: res.data.id,
+                    });
+                }
+              }
+            );
+          } else {
+            res.status(400).send({ msg: "Authorize First" });
+          }
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
   } catch (e) {
     console.log(e);
     return;

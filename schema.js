@@ -55,10 +55,10 @@ const userSchema = new mongo.Schema(
       type: Number,
       default: 0,
     },
-    isRefreshToken:{
-      type:Boolean,
-      default:false
-    }
+    isRefreshToken: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -157,7 +157,7 @@ meetingSchema.pre("save", async function (next) {
         event: this._id,
         createdBy: this.createdBy,
       });
-      let timelineResult=await newTimeline.save();
+      let timelineResult = await newTimeline.save();
     }
     next();
   } catch (e) {
@@ -176,7 +176,10 @@ meetingSchema.post("findOneAndDelete", async function (doc, next) {
       await user.save();
     }
     await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
-    await Timeline.findOneAndDelete({ event: doc._id, createdBy: doc.createdBy });
+    await Timeline.findOneAndDelete({
+      event: doc._id,
+      createdBy: doc.createdBy,
+    });
     await Attendee.deleteMany({ meeting: doc._id });
     console.log("findOneAndDelete");
     next();
@@ -213,7 +216,7 @@ const attendeeSchema = new mongo.Schema(
     slot: {
       type: mongo.Schema.Types.Mixed,
       require: true,
-      default: {}
+      default: {},
     },
   },
   {
@@ -287,20 +290,20 @@ const ecommerceSchema = new mongo.Schema({
   price: {
     type: Number,
   },
-  isSoldOut:{
-    type:Boolean,
-    default:false,
-  }
+  isSoldOut: {
+    type: Boolean,
+    default: false,
+  },
 });
 ecommerceSchema.plugin(mongoosePaginate);
 const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
 
 const cartSchema = new mongo.Schema({
-  userId:{
-    type: String
+  userId: {
+    type: String,
   },
-  productId:{
-    type:  [mongo.Schema.Types.ObjectId],
+  productId: {
+    type: [mongo.Schema.Types.ObjectId],
   },
   isSold: {
     type: Boolean,
@@ -312,7 +315,7 @@ const timeLineSchema = new mongo.Schema(
   {
     event: {
       type: mongo.Schema.Types.ObjectId,
-      ref:"Meeting",
+      ref: "Meeting",
       required: true,
     },
     createdBy: {
@@ -321,7 +324,7 @@ const timeLineSchema = new mongo.Schema(
     },
     guest: {
       type: [mongo.Schema.Types.ObjectId],
-      ref:"User",
+      ref: "User",
       default: [],
     },
     timeline: {
@@ -342,53 +345,66 @@ const timeLineSchema = new mongo.Schema(
 timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
-const Timeline = mongo.model("Timeline",  timeLineSchema);
-const tokenSchema = new mongo.Schema({
-  user:{
-    type:mongo.Schema.Types.ObjectId,
-    ref:"User",
-    required:true,
-    unique:true
+const Timeline = mongo.model("Timeline", timeLineSchema);
+const tokenSchema = new mongo.Schema(
+  {
+    user: {
+      type: mongo.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+    refreshToken: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    registeredEmail: {
+      type: String,
+      lowercase: true,
+      require: true,
+      unique: true,
+      trim: true,
+      match: [
+        /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+        "Invalid Email.",
+      ],
+    },
   },
-  accessToken:{
-    type:String,
-    trim:true,
-    default:""
-  },
-  expireDate:{// unix timestamp
-    type:Number,
-    default:0
-  },
-  refreshToken:{
-    type:String,
-    trim:true,
-    default:""
+  {
+    timestamps: true,
   }
-},{
-  timestamps:true,
-})
+);
 timeLineSchema.plugin(mongoosePaginate);
 tokenSchema.post("save", humanizeErrors);
 tokenSchema.post("update", humanizeErrors);
-tokenSchema.pre("save",async function (next) {
+tokenSchema.pre("save", async function (next) {
   try {
     if (this.isNew) {
-      User.findById(this.user).then(async result=>{
+      User.findById(this.user).then(async (result) => {
         if (result) {
-          result.isRefreshToken=true
-          await result.save()
+          result.isRefreshToken = true;
+          await result.save();
         }
-        
-      })
+      });
     }
-    next()
+    next();
   } catch (e) {
     console.log(e.message);
-    next()
+    next();
   }
-  next()
-})
+  next();
+});
 
-const Token= mongo.model("Token",tokenSchema)
+const Token = mongo.model("Token", tokenSchema);
 
-module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart,Token };
+module.exports = {
+  User,
+  Meeting,
+  Attendee,
+  Note,
+  Timeline,
+  Ecommerce,
+  Cart,
+  Token,
+};
