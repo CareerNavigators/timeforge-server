@@ -409,14 +409,17 @@ const googleCalendarSchema = new mongo.Schema(
         htmlLink: {
           type: String,
           trim: true,
+          default:""
         },
         id: {
           type: String,
           trim: true,
+          default:""
         },
         meetLink: {
           type: String,
           trim: true,
+          default:""
         },
       },
     ],
