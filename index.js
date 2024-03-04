@@ -1142,14 +1142,6 @@ async function run() {
          }
       }
      );
-     app.get("/getgooglecal",logger,emptyQueryChecker,async(req,res)=>{
-      const googleCals=await GoogleCalendarEvent.where("event").equals(req.query.eventid)
-      if (googleCals.length!=0) {
-        return res.status(200).send(googleCals)
-      }else{
-        return res.status(400).send({msg:"No Google calendar found"})
-      }
-     })
   } catch (e) {
     console.log(e);
     return;
