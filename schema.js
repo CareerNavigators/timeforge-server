@@ -375,7 +375,7 @@ const tokenSchema = new mongo.Schema(
     timestamps: true,
   }
 );
-timeLineSchema.plugin(mongoosePaginate);
+tokenSchema.plugin(mongoosePaginate);
 tokenSchema.post("save", humanizeErrors);
 tokenSchema.post("update", humanizeErrors);
 tokenSchema.pre("save", async function (next) {
@@ -404,25 +404,33 @@ const googleCalendarSchema = new mongo.Schema(
       type: mongo.Schema.Types.ObjectId,
       ref: "Meeting",
     },
-    googleEvents: [
-      {
-        htmlLink: {
-          type: String,
-          trim: true,
-          default:""
+    googleEvents: {
+      type:[
+        {
+          schedule:{
+            type:String,
+            default:"",
+            trim:true
+          },
+          htmlLink: {
+            type: String,
+            trim: true,
+            default:""
+          },
+          id: {
+            type: String,
+            trim: true,
+            default:""
+          },
+          meetLink: {
+            type: String,
+            trim: true,
+            default:""
+          },
         },
-        id: {
-          type: String,
-          trim: true,
-          default:""
-        },
-        meetLink: {
-          type: String,
-          trim: true,
-          default:""
-        },
-      },
-    ],
+      ],
+      default:[],
+    }
   },
   {
     timestamps: true,
