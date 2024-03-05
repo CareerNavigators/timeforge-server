@@ -1016,6 +1016,7 @@ async function run() {
     );
     app.get("/authorization", logger, emptyQueryChecker, async (req, res) => {
       try {
+        const scopes=["https://www.googleapis.com/auth/calendar"]
         if (req.query.access_type == "online") {
           const authorizationUrl = oauth2Client.generateAuthUrl({
             access_type: req.query.access_type,
