@@ -1242,18 +1242,22 @@ async function run() {
       emptyQueryChecker,
       async (req, res) => {
         try {
-          setCreadential(req.query.userId);
+          await setCreadential(req.query.userId);
           let result = null;
           if (req.query.type == "all") {
             result = await GoogleCalendarEvent.findOneAndDelete({
               _id: new mongo.Types.ObjectId(req.params.id),
             });
           } else if (req.query.type == "single") {
-            result = await GoogleCalendarEvent.findOneAndDelete({
-              _id: new mongo.Types.ObjectId(req.params.id),
-            });
+            const calendarId = await GetCalendarId();
+            if (calendarId) {
+              result= await calendar.events.delete({
+                auth: oauth2Client,
+                eventId: req.params.id,
+                calendarId: calendarId,
+              });
+            }
           }
-
           if (result) {
             res.status(200).send({ msg: "Delete Successful." });
           } else {
