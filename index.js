@@ -1,17 +1,16 @@
 require("dotenv").config();
-const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const mongo = require("mongoose");
 const admin = require("firebase-admin");
-const nodemailer = require("nodemailer");
-const { google } = require("googleapis");
-const calendar = google.calendar("v3");
+const calendar = require("googleapis").google.calendar("v3");
+const oauth2 = require("googleapis").google.oauth2("v2");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 const utc = require("dayjs/plugin/utc");
 dayjs.extend(utc);
 dayjs.extend(customParseFormat);
+const { oauth2Client, mailTransporter } = require("./setup");
 const {
   User,
   Meeting,
@@ -34,21 +33,17 @@ const {
   UpdateHelper,
   DeleteUser,
   ProfileImageSizeCutter,
+  setCreadential,
+  GetCalendarId,
 } = require("./util");
+
 const app = express();
 const port = process.env.PORT || 5111;
 app.use(cors());
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`;
 mongo.connect(uri);
-const config = {
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL,
-    pass: process.env.PASS,
-  },
-};
-const mailTransporter = nodemailer.createTransport(config);
+
 // firebase admin keys
 const serviceAccount = {
   type: process.env.TYPE,
@@ -66,17 +61,6 @@ const serviceAccount = {
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
-const clientId = process.env.GOOGLE_CLIENT_ID;
-const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-const scopes = ["https://www.googleapis.com/auth/calendar"];
-
-const oauth2Client = new google.auth.OAuth2(
-  clientId,
-  clientSecret,
-  redirectUri
-);
 
 async function run() {
   try {
@@ -476,6 +460,47 @@ async function run() {
       checkBody(["name", "email", "event", "slot"]),
       async (req, res) => {
         try {
+          const meeting = await Meeting.findById(req.body.event).select(
+            "createdBy events -_id"
+          );
+          if (!meeting) {
+            return res.status(404).send({ msg: "Meeting not found." });
+          }
+          const googleCal = await GoogleCalendarEvent.findOne({
+            event: new mongo.Types.ObjectId(req.body.event),
+          }).select("googleEvents");
+          const firstKey = Object.keys(req.body.slot)[0];
+          const schedule = `${firstKey}-${req.body.slot[firstKey]}`;
+          const eventGoogle = googleCal.googleEvents.find(
+            (event) => event.schedule === schedule
+          );
+          if (googleCal && eventGoogle) {
+            const isCredentialSet = await setCreadential(meeting.createdBy);
+            if (isCredentialSet) {
+              const calendarId = await GetCalendarId();
+              if (calendarId) {
+                const googleEvent = await calendar.events.get({
+                  auth: oauth2Client,
+                  calendarId: calendarId,
+                  eventId: eventGoogle.id,
+                });
+                const existingAttendees = googleEvent.data.attendees || [];
+                const newAttendee = {
+                  email: req.body.email,
+                  displayName: req.body.name,
+                };
+                const updatedAttendees = [...existingAttendees, newAttendee];
+                await calendar.events.patch({
+                  auth: oauth2Client,
+                  calendarId: calendarId,
+                  eventId: eventGoogle.id,
+                  requestBody: {
+                    attendees: updatedAttendees,
+                  },
+                });
+              }
+            }
+          }
           const attendee = new Attendee(req.body);
           attendee
             .save()
@@ -492,6 +517,7 @@ async function run() {
               }
             });
         } catch (e) {
+          console.log(e);
           erroResponse(res, e);
         }
       }
@@ -831,7 +857,6 @@ async function run() {
         mailTransporter
           .sendMail(message)
           .then((result) => {
-            console.log(result);
             res.status(200).send({ msg: "Mail Sent" });
           })
           .catch((e) => {
@@ -949,11 +974,11 @@ async function run() {
                 access_token: result?.tokens?.access_token,
                 refresh_token: result?.tokens?.refresh_token,
               });
-              const oauth2 = google.oauth2({
+              const oauth = oauth2({
                 auth: oauth2Client,
                 version: "v2",
               });
-              const userInfo = await oauth2.userinfo.get();
+              const userInfo = await oauth.userinfo.get();
               const newToken = new Token({
                 user: req.body.id,
                 refreshToken: result.tokens.refresh_token,
@@ -1031,117 +1056,151 @@ async function run() {
       emptyBodyChecker,
       checkBody(["userId", "eventId"]),
       async (req, res) => {
-         try {
-           const userToken = await Token.findOne({
-             user: new mongo.Types.ObjectId(req.body.userId),
-           });
-           if (!userToken) {
-             return res.status(400).send({ msg: "Authorize First" });
-           }
-     
-           let googleEvent = await GoogleCalendarEvent.findOne({
-             event: new mongo.Types.ObjectId(req.body.eventId),
-           });
-     
-           if (googleEvent) {
-             return res.status(200).send({ msg: "Event already Exist on google Calendar" });
-           }
-     
-           googleEvent = new GoogleCalendarEvent({
-             event: req.body.eventId,
-           });
-     
-           const result = await Meeting.findById(req.body.eventId);
-           if (!result) {
-            return res.status(400).send({msg:"No schedule found."})
-           }
-           oauth2Client.setCredentials({
-             refresh_token: userToken.refreshToken,
-           });
-     
-           const calendarName = "TimeForge";
-           const response = await calendar.calendarList.list({
-             auth: oauth2Client,
-           });
-     
-           const calendars = response.data.items;
-           let isCalendarExist = false;
-           let calendarId;
-     
-           for (const calendar of calendars) {
-             if (calendar.summary === calendarName) {
-               isCalendarExist = true;
-               calendarId = calendar.id;
-               break;
-             }
-           }
-     
-           if (!isCalendarExist) {
-             const newCalendar = {
-               summary: calendarName,
-               description: "This Calendar contains all the events from TimeForge",
-               timeZone: "Asia/Dhaka",
-             };
-             const result = await calendar.calendars.insert({
-               auth: oauth2Client,
-               resource: newCalendar,
-             });
-             calendarId = result.data.id;
-           }
-     
-           let googleEvents = [];
-     
-           for (const key in result.events) {
-             if (Object.hasOwnProperty.call(result.events, key)) {
-               const element = result.events[key];
-               for (const item of element) {
-                 const startDateTime = dayjs(`${key} ${item}`, "DDMMYY hh:mm A").format();
-                 const endDateTime = dayjs(`${key} ${item}`, "DDMMYY hh:mm A")
-                   .add(parseInt(result.duration), "m")
-                   .format();
-                 const calResult = await calendar.events.insert({
-                   auth: oauth2Client,
-                   calendarId: calendarId,
-                   resource: {
-                     summary: result.title,
-                     description: result.desc,
-                     start: {
+        try {
+          const userToken = await Token.findOne({
+            user: new mongo.Types.ObjectId(req.body.userId),
+          });
+          if (!userToken) {
+            return res.status(400).send({ msg: "Authorize First" });
+          }
+
+          let googleEvent = await GoogleCalendarEvent.findOne({
+            event: new mongo.Types.ObjectId(req.body.eventId),
+          });
+
+          if (googleEvent) {
+            return res
+              .status(200)
+              .send({ msg: "Event already Exist on google Calendar" });
+          }
+
+          googleEvent = new GoogleCalendarEvent({
+            event: req.body.eventId,
+          });
+
+          const result = await Meeting.findById(req.body.eventId);
+          if (!result) {
+            return res.status(400).send({ msg: "No schedule found." });
+          }
+          oauth2Client.setCredentials({
+            refresh_token: userToken.refreshToken,
+          });
+
+          const calendarName = "TimeForge";
+          const response = await calendar.calendarList.list({
+            auth: oauth2Client,
+          });
+
+          const calendars = response.data.items;
+          let isCalendarExist = false;
+          let calendarId;
+
+          for (const calendar of calendars) {
+            if (calendar.summary === calendarName) {
+              isCalendarExist = true;
+              calendarId = calendar.id;
+              break;
+            }
+          }
+
+          if (!isCalendarExist) {
+            const newCalendar = {
+              summary: calendarName,
+              description:
+                "This Calendar contains all the events from TimeForge",
+              timeZone: "Asia/Dhaka",
+            };
+            const result = await calendar.calendars.insert({
+              auth: oauth2Client,
+              resource: newCalendar,
+            });
+            calendarId = result.data.id;
+          }
+          let googleEvents = [];
+          for (const key in result.events) {
+            if (Object.hasOwnProperty.call(result.events, key)) {
+              const element = result.events[key];
+              for (const item of element) {
+                const startDateTime = dayjs(
+                  `${key} ${item}`,
+                  "DDMMYY hh:mm A"
+                ).format();
+                const endDateTime = dayjs(`${key} ${item}`, "DDMMYY hh:mm A")
+                  .add(parseInt(result.duration), "m")
+                  .format();
+                const calResult = await calendar.events.insert({
+                  auth: oauth2Client,
+                  calendarId: calendarId,
+                  resource: {
+                    summary: result.title,
+                    description: result.desc,
+                    start: {
                       dateTime: startDateTime,
                       timeZone: "Asia/Dhaka",
-                     },
-                     end: {
+                    },
+                    end: {
                       dateTime: endDateTime,
                       timeZone: "Asia/Dhaka",
-                     },
-                     reminders: {
+                    },
+                    reminders: {
                       useDefault: false,
                       overrides: [
-                         {
-                           method: "popup",
-                           minutes: 10,
-                         },
+                        {
+                          method: "popup",
+                          minutes: 10,
+                        },
                       ],
-                     },
-                   },
-                 });
-                 googleEvents.push({
-                   id: calResult.data.id,
-                   htmlLink: calResult.data.htmlLink,
-                   schedule: `${key}-${item}`,
-                 });
-               }
-             }
-           }
-           googleEvent.googleEvents = googleEvents;
-           await googleEvent.save();
-           res.status(201).send({
-             msg: "Event Successfully Created",
-           });
-         } catch (error) {
-           res.status(400).send({ msg: error.message });
-         }
+                    },
+                  },
+                });
+                googleEvents.push({
+                  id: calResult.data.id,
+                  htmlLink: calResult.data.htmlLink,
+                  schedule: `${key}-${item}`,
+                });
+              }
+            }
+          }
+          googleEvent.googleEvents = googleEvents;
+          await googleEvent.save();
+          res.status(201).send({
+            msg: "Event Successfully Created",
+          });
+        } catch (error) {
+          res.status(400).send({ msg: error.message });
+        }
       }
-     );
+    );
+    app.get("/calevents", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const result = await GoogleCalendarEvent.findOne({
+          event: new mongo.Types.ObjectId(req.query.eventid),
+        }).select("googleEvents");
+        res.status(200).send(result);
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
+    app.delete(
+      "/calevents/:id",
+      logger,
+      emptyQueryChecker,
+      async (req, res) => {
+        try {
+          setCreadential(req.query.userId);
+          const result = await GoogleCalendarEvent.findOneAndDelete({
+            _id: new mongo.Types.ObjectId(req.params.id),
+          });
+          if (result) {
+            res.status(200).send({ msg: "Delete Successful." });
+          } else {
+            res.status(400).send({ msg: "GoogleCalendar not found." });
+          }
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
   } catch (e) {
     console.log(e);
     return;

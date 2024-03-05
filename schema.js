@@ -1,6 +1,8 @@
 const mongo = require("mongoose");
 const humanizeErrors = require("mongoose-error-humanizer");
+const calendar = require("googleapis").google.calendar("v3");
 const mongoosePaginate = require("mongoose-paginate-v2");
+const { oauth2Client } = require("./setup");
 const userSchema = new mongo.Schema(
   {
     name: {
@@ -181,7 +183,9 @@ meetingSchema.post("findOneAndDelete", async function (doc, next) {
       createdBy: doc.createdBy,
     });
     await Attendee.deleteMany({ meeting: doc._id });
-    console.log("findOneAndDelete");
+    await GoogleCalendarEvent.findOneAndDelete({
+      event: new mongo.Types.ObjectId(doc._id),
+    });
     next();
   } catch (e) {
     console.log(e.message);
@@ -236,13 +240,48 @@ attendeeSchema.post("save", async function (doc) {
     console.log(error);
   }
 });
-attendeeSchema.post("findOneAndDelete", async function (doc) {
+attendeeSchema.post("findOneAndDelete", async function (doc, next) {
   try {
     const meeting = await Meeting.findById(doc.event);
     meeting.attendee = (await Attendee.where("event").equals(doc.event)).length;
     await meeting.save();
+    const googleCal = await GoogleCalendarEvent.findOne({
+      event: new mongo.Types.ObjectId(doc.event),
+    }).select("googleEvents");
+    const firstKey = Object.keys(doc.slot)[0];
+    const schedule = `${firstKey}-${doc.slot[firstKey]}`;
+    const eventGoogle = googleCal.googleEvents.find(
+      (event) => event.schedule === schedule
+    );
+    const isCredentialSet = await require("./util").setCreadential(meeting.createdBy);
+    if (isCredentialSet && googleCal && eventGoogle) {
+      const calendarId = await require("./util").GetCalendarId();
+      if (calendarId) {
+        const googleEvent = await calendar.events.get({
+          auth: oauth2Client,
+          calendarId: calendarId,
+          eventId: eventGoogle.id,
+        });
+        const existingAttendees = googleEvent.data.attendees || [];
+        console.log("~ existingAttendees", existingAttendees);
+        const updatedAttendees = existingAttendees.filter(
+          (x) => x.email != doc.email
+        );
+        console.log("~ updatedAttendees", updatedAttendees);
+        await calendar.events.patch({
+          auth: oauth2Client,
+          calendarId: calendarId,
+          eventId: eventGoogle.id,
+          requestBody: {
+            attendees: updatedAttendees,
+          },
+        });
+      }
+    }
   } catch (e) {
     console.log(`attendeeSchema:post:findOneAndDelete:${e.message}`);
+  } finally {
+    next();
   }
 });
 
@@ -405,37 +444,63 @@ const googleCalendarSchema = new mongo.Schema(
       ref: "Meeting",
     },
     googleEvents: {
-      type:[
+      type: [
         {
-          schedule:{
-            type:String,
-            default:"",
-            trim:true
+          schedule: {
+            type: String,
+            default: "",
+            trim: true,
           },
           htmlLink: {
             type: String,
             trim: true,
-            default:""
+            default: "",
           },
           id: {
             type: String,
             trim: true,
-            default:""
+            default: "",
           },
           meetLink: {
             type: String,
             trim: true,
-            default:""
+            default: "",
           },
         },
       ],
-      default:[],
-    }
+      default: [],
+    },
   },
   {
     timestamps: true,
   }
 );
+
+googleCalendarSchema.post("findOneAndDelete", async function (doc, next) {
+  if (doc == null) {
+    next();
+    return;
+  }
+  try {
+    let calendarId = await require("./util").GetCalendarId();
+    if (calendarId) {
+      for (const item of doc.googleEvents) {
+        await calendar.events.delete({
+          auth: oauth2Client,
+          eventId: item.id,
+          calendarId: calendarId,
+        });
+      }
+    }
+    next();
+  } catch (e) {
+    console.log(e.message);
+    next();
+  } finally {
+    next();
+  }
+});
+
 const GoogleCalendarEvent = mongo.model(
   "GoogleCalendarEvent",
   googleCalendarSchema
