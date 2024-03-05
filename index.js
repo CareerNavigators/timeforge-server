@@ -356,6 +356,7 @@ async function run() {
 
     //timeline API
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
+      console.log(req.query);
       try {
         if (req.query.type == "all") {
           Timeline.where("createdBy")
@@ -368,7 +369,7 @@ async function run() {
                 res.send({ msg: "No timeline found." });
               }
             });
-        } else if ((req.query.type = "single")) {
+        } else if (req.query.type == "single") {
           Timeline.findById(req.query.id)
             .select("event createdBy timeline")
             .populate("event", "startTime endTime")
@@ -380,10 +381,12 @@ async function run() {
               res.status(404).send({ msg: "Timeline not found." });
             });
         } else if (req.query.type == "event") {
+          console.log("query event");
           Timeline.findOne({ event: new mongo.Types.ObjectId(req.query.id) })
             .select("event createdBy timeline")
             .populate("event", "startTime endTime")
             .then((result) => {
+              console.log("~ result", result);
               res.status(200).send(result);
             })
             .catch((e) => {
