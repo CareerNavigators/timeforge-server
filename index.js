@@ -1250,12 +1250,25 @@ async function run() {
             });
           } else if (req.query.type == "single") {
             const calendarId = await GetCalendarId();
-            if (calendarId) {
-              result= await calendar.events.delete({
-                auth: oauth2Client,
-                eventId: req.params.id,
-                calendarId: calendarId,
-              });
+            const googleCal = await GoogleCalendarEvent.findOne({
+              event: new mongo.Types.ObjectId(req.query.eventid),
+            });
+            if (googleCal) {
+              if (googleCal.googleEvents.length == 1) {
+                result = await GoogleCalendarEvent.findOneAndDelete({
+                  event: new mongo.Types.ObjectId(req.query.eventid),
+                });
+              } else {
+                googleCal.googleEvents.pull({ id: req.params.id });
+                await googleCal.save();
+                if (calendarId) {
+                  result = await calendar.events.delete({
+                    auth: oauth2Client,
+                    eventId: req.params.id,
+                    calendarId: calendarId,
+                  });
+                }
+              }
             }
           }
           if (result) {
