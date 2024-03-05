@@ -4,7 +4,7 @@ const cors = require("cors");
 const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const calendar = require("googleapis").google.calendar("v3");
-const oauth2 = require("googleapis").google.oauth2("v2");
+const { google } = require("googleapis");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 const utc = require("dayjs/plugin/utc");
@@ -460,6 +460,7 @@ async function run() {
       checkBody(["name", "email", "event", "slot"]),
       async (req, res) => {
         try {
+          let googleCalResult = null;
           const meeting = await Meeting.findById(req.body.event).select(
             "createdBy events -_id"
           );
@@ -469,35 +470,38 @@ async function run() {
           const googleCal = await GoogleCalendarEvent.findOne({
             event: new mongo.Types.ObjectId(req.body.event),
           }).select("googleEvents");
-          const firstKey = Object.keys(req.body.slot)[0];
-          const schedule = `${firstKey}-${req.body.slot[firstKey]}`;
-          const eventGoogle = googleCal.googleEvents.find(
-            (event) => event.schedule === schedule
-          );
-          if (googleCal && eventGoogle) {
-            const isCredentialSet = await setCreadential(meeting.createdBy);
-            if (isCredentialSet) {
-              const calendarId = await GetCalendarId();
-              if (calendarId) {
-                const googleEvent = await calendar.events.get({
-                  auth: oauth2Client,
-                  calendarId: calendarId,
-                  eventId: eventGoogle.id,
-                });
-                const existingAttendees = googleEvent.data.attendees || [];
-                const newAttendee = {
-                  email: req.body.email,
-                  displayName: req.body.name,
-                };
-                const updatedAttendees = [...existingAttendees, newAttendee];
-                await calendar.events.patch({
-                  auth: oauth2Client,
-                  calendarId: calendarId,
-                  eventId: eventGoogle.id,
-                  requestBody: {
-                    attendees: updatedAttendees,
-                  },
-                });
+
+          if (googleCal) {
+            const firstKey = Object.keys(req.body.slot)[0];
+            const schedule = `${firstKey}-${req.body.slot[firstKey]}`;
+            const eventGoogle = googleCal.googleEvents.find(
+              (event) => event.schedule === schedule
+            );
+            if (eventGoogle) {
+              const isCredentialSet = await setCreadential(meeting.createdBy);
+              if (isCredentialSet) {
+                const calendarId = await GetCalendarId();
+                if (calendarId) {
+                  const googleEvent = await calendar.events.get({
+                    auth: oauth2Client,
+                    calendarId: calendarId,
+                    eventId: eventGoogle.id,
+                  });
+                  const existingAttendees = googleEvent.data.attendees || [];
+                  const newAttendee = {
+                    email: req.body.email,
+                    displayName: req.body.name,
+                  };
+                  const updatedAttendees = [...existingAttendees, newAttendee];
+                  googleCalResult = await calendar.events.patch({
+                    auth: oauth2Client,
+                    calendarId: calendarId,
+                    eventId: eventGoogle.id,
+                    requestBody: {
+                      attendees: updatedAttendees,
+                    },
+                  });
+                }
               }
             }
           }
@@ -505,7 +509,16 @@ async function run() {
           attendee
             .save()
             .then((result) => {
-              res.status(201).send(result);
+              if (googleCalResult) {
+                res
+                  .status(201)
+                  .send({
+                    result: result,
+                    htmlLink: googleCalResult.data.htmlLink,
+                  });
+              } else {
+                res.status(201).send({ result: result });
+              }
             })
             .catch((e) => {
               if (e.code == 11000) {
@@ -974,17 +987,26 @@ async function run() {
                 access_token: result?.tokens?.access_token,
                 refresh_token: result?.tokens?.refresh_token,
               });
-              const oauth = oauth2({
+              const oauth2 = google.oauth2({
                 auth: oauth2Client,
                 version: "v2",
               });
-              const userInfo = await oauth.userinfo.get();
-              const newToken = new Token({
-                user: req.body.id,
-                refreshToken: result.tokens.refresh_token,
-                registeredEmail: userInfo.data.email,
-              });
-              await newToken.save();
+              const userInfo = await oauth2.userinfo.get();
+              if (userInfo) {
+                const newToken = new Token({
+                  user: req.body.id,
+                  refreshToken: result.tokens.refresh_token,
+                  registeredEmail: userInfo.data.email,
+                });
+                await newToken.save();
+              } else {
+                const newToken = new Token({
+                  user: req.body.id,
+                  refreshToken: result.tokens.refresh_token,
+                  registeredEmail: "",
+                });
+                await newToken.save();
+              }
               res.status(201).send({ msg: "Successfully created" });
             } else {
               res.status(400).send({ msg: "Token Failed to get" });
@@ -1016,7 +1038,7 @@ async function run() {
     );
     app.get("/authorization", logger, emptyQueryChecker, async (req, res) => {
       try {
-        const scopes=["https://www.googleapis.com/auth/calendar"]
+        const scopes = ["https://www.googleapis.com/auth/calendar"];
         if (req.query.access_type == "online") {
           const authorizationUrl = oauth2Client.generateAuthUrl({
             access_type: req.query.access_type,
@@ -1118,6 +1140,7 @@ async function run() {
             calendarId = result.data.id;
           }
           let googleEvents = [];
+          const attendees=await Attendee.where("event").equals(req.body.eventId)
           for (const key in result.events) {
             if (Object.hasOwnProperty.call(result.events, key)) {
               const element = result.events[key];
@@ -1126,33 +1149,47 @@ async function run() {
                   `${key} ${item}`,
                   "DDMMYY hh:mm A"
                 ).format();
+                const existAttendee=new Array();
+                for (const item2 of attendees) {
+                  const t_firstKey=Object.keys(item2.slot)[0]
+                  const t_firstItem= item2.slot[t_firstKey][0]
+                  if (t_firstKey==key && t_firstItem==item) {
+                    existAttendee.push({email:item2.email,displayName:item2.name})
+                  }
+                }
+
                 const endDateTime = dayjs(`${key} ${item}`, "DDMMYY hh:mm A")
                   .add(parseInt(result.duration), "m")
                   .format();
+                let resource = {
+                  summary: result.title,
+                  description: result.desc,
+                  start: {
+                    dateTime: startDateTime,
+                    timeZone: "Asia/Dhaka",
+                  },
+                  end: {
+                    dateTime: endDateTime,
+                    timeZone: "Asia/Dhaka",
+                  },
+                  reminders: {
+                    useDefault: false,
+                    overrides: [
+                      {
+                        method: "popup",
+                        minutes: 10,
+                      },
+                    ],
+                  },
+                };
+                if (existAttendee.length!=0) {
+                  resource["attendees"]=existAttendee
+                }
+                console.log("~ resource", resource)
                 const calResult = await calendar.events.insert({
                   auth: oauth2Client,
                   calendarId: calendarId,
-                  resource: {
-                    summary: result.title,
-                    description: result.desc,
-                    start: {
-                      dateTime: startDateTime,
-                      timeZone: "Asia/Dhaka",
-                    },
-                    end: {
-                      dateTime: endDateTime,
-                      timeZone: "Asia/Dhaka",
-                    },
-                    reminders: {
-                      useDefault: false,
-                      overrides: [
-                        {
-                          method: "popup",
-                          minutes: 10,
-                        },
-                      ],
-                    },
-                  },
+                  resource: resource,
                 });
                 googleEvents.push({
                   id: calResult.data.id,
