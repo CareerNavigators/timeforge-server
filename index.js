@@ -379,6 +379,17 @@ async function run() {
               console.log(e.message);
               res.status(404).send({ msg: "Timeline not found." });
             });
+        } else if (req.query.type == "event") {
+          Timeline.findOne({ event: new mongo.Types.ObjectId(req.query.id) })
+            .select("event createdBy timeline")
+            .populate("event", "startTime endTime")
+            .then((result) => {
+              res.status(200).send(result);
+            })
+            .catch((e) => {
+              console.log(e.message);
+              res.status(404).send({ msg: "Timeline not found." });
+            });
         } else {
           res.status(400).send({ msg: "Expected query failed." });
         }
@@ -510,12 +521,10 @@ async function run() {
             .save()
             .then((result) => {
               if (googleCalResult) {
-                res
-                  .status(201)
-                  .send({
-                    result: result,
-                    htmlLink: googleCalResult.data.htmlLink,
-                  });
+                res.status(201).send({
+                  result: result,
+                  htmlLink: googleCalResult.data.htmlLink,
+                });
               } else {
                 res.status(201).send({ result: result });
               }
@@ -1140,7 +1149,9 @@ async function run() {
             calendarId = result.data.id;
           }
           let googleEvents = [];
-          const attendees=await Attendee.where("event").equals(req.body.eventId)
+          const attendees = await Attendee.where("event").equals(
+            req.body.eventId
+          );
           for (const key in result.events) {
             if (Object.hasOwnProperty.call(result.events, key)) {
               const element = result.events[key];
@@ -1149,12 +1160,15 @@ async function run() {
                   `${key} ${item}`,
                   "DDMMYY hh:mm A"
                 ).format();
-                const existAttendee=new Array();
+                const existAttendee = new Array();
                 for (const item2 of attendees) {
-                  const t_firstKey=Object.keys(item2.slot)[0]
-                  const t_firstItem= item2.slot[t_firstKey][0]
-                  if (t_firstKey==key && t_firstItem==item) {
-                    existAttendee.push({email:item2.email,displayName:item2.name})
+                  const t_firstKey = Object.keys(item2.slot)[0];
+                  const t_firstItem = item2.slot[t_firstKey][0];
+                  if (t_firstKey == key && t_firstItem == item) {
+                    existAttendee.push({
+                      email: item2.email,
+                      displayName: item2.name,
+                    });
                   }
                 }
 
@@ -1182,10 +1196,10 @@ async function run() {
                     ],
                   },
                 };
-                if (existAttendee.length!=0) {
-                  resource["attendees"]=existAttendee
+                if (existAttendee.length != 0) {
+                  resource["attendees"] = existAttendee;
                 }
-                console.log("~ resource", resource)
+                console.log("~ resource", resource);
                 const calResult = await calendar.events.insert({
                   auth: oauth2Client,
                   calendarId: calendarId,
@@ -1226,9 +1240,17 @@ async function run() {
       async (req, res) => {
         try {
           setCreadential(req.query.userId);
-          const result = await GoogleCalendarEvent.findOneAndDelete({
-            _id: new mongo.Types.ObjectId(req.params.id),
-          });
+          let result = null;
+          if (req.query.type == "all") {
+            result = await GoogleCalendarEvent.findOneAndDelete({
+              _id: new mongo.Types.ObjectId(req.params.id),
+            });
+          } else if (req.query.type == "single") {
+            result = await GoogleCalendarEvent.findOneAndDelete({
+              _id: new mongo.Types.ObjectId(req.params.id),
+            });
+          }
+
           if (result) {
             res.status(200).send({ msg: "Delete Successful." });
           } else {
