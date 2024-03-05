@@ -7,7 +7,7 @@ const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
-const { User, Meeting, Attendee, Note, Ecommerce, Cart } = require("./schema");
+const { User, Meeting, Attendee, Note, Ecommerce, Cart, Order } = require("./schema");
 const {
   logger,
   checkBody,
@@ -48,6 +48,7 @@ const serviceAccount = {
   client_x509_cert_url: process.env.CLIENT_X509_CERT_URL,
   universe_domain: process.env.UNIVERSE_DOMAIN,
 };
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -609,7 +610,7 @@ async function run() {
       try {
         const ecommerceItems = await Ecommerce.find();
         // res.status(200).json(ecommerceItems);
-        console.log(ecommerceItems);
+        // console.log(ecommerceItems);
         res.send(ecommerceItems);
       } catch (error) {
         res.status(500).json({ message: "Error fetching ecommerce items" });
@@ -647,6 +648,139 @@ async function run() {
         res.status(404).send({ message: "cart items not found" });
       }
     });
+
+    // payment
+    app.post("/create-checkout-session", async (req, res) => {
+      const { products } = req.body;
+      const lineItems = products.map((product) => {
+        const quantity = product?.quantity && product.quantity > 0 ? product.quantity : 1;
+         return {
+           price_data: {
+             currency: "usd",
+             product_data: {
+               name: product?.title,
+               images: [product?.img],
+             },
+             unit_amount: Math.round(product.price * 100),
+           },
+           quantity: quantity
+         };
+      });
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types:["card"],
+        shipping_address_collection: {
+          allowed_countries: ["US", "CA", "BD",],
+        },
+        shipping_options: [
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: {
+                amount: 0,
+                currency: "usd",
+              },
+              display_name: "Free shipping",
+              // Delivers between 5-7 business days
+              delivery_estimate: {
+                minimum: {
+                  unit: "business_day",
+                  value: 5,
+                },
+                maximum: {
+                  unit: "business_day",
+                  value: 7,
+                },
+              },
+            },
+          },
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: {
+                amount: 1500,
+                currency: "usd",
+              },
+              display_name: "Next day air",
+              // Delivers in exactly 1 business day
+              delivery_estimate: {
+                minimum: {
+                  unit: "business_day",
+                  value: 1,
+                },
+                maximum: {
+                  unit: "business_day",
+                  value: 1,
+                },
+              },
+            },
+          },
+        ],
+        phone_number_collection: {
+          enabled: true,
+        },
+        // customer: customer.id,
+        line_items:lineItems,
+        mode: "payment",
+        success_url:"http://localhost:5173/success"
+      })
+     
+      // Assuming you want to do something with lineItems, like sending it back as a response
+      res.json({id:session.id});
+     });
+
+
+     app.post('/webhook', async (req, res) => {
+      const event = req.body;
+     
+      try {
+         if (event.type === 'checkout.session.completed') {
+           const session = event.data.object;
+           console.log(session);
+     
+           // Extract necessary details from the session
+           const products = session.line_items.data.map(item => ({
+             productId: item.id,
+             quantity: item.quantity,
+             title: item.title, // Assuming you want to store the product name
+           }));
+           console.log(products);
+           const subtotal = session.amount_subtotal;
+           const total = session.amount_total;
+           const shipping = session.shipping; // Assuming you want to store the shipping details
+           const payment_status = session.payment_status;
+     
+          //  Create a new order
+           const newOrder = new Order({
+             products,
+             subtotal,
+             total,
+             shipping,
+             payment_status,
+           });
+
+          // const testOrder = new Order({
+          //   products: [{ productId: 'test1', quantity: 1, title: 'Test Product' }],
+          //   subtotal: 1000,
+          //   total: 1000,
+          //   shipping: {},
+          //   payment_status: 'succeeded',
+          //  });
+     
+           // Save the order to the database
+           await newOrder.save();
+           console.log('Order saved successfully');
+         }
+     
+         // Return a response to acknowledge receipt of the event
+         res.json({received: true});
+      } catch (err) {
+         console.error(`Error handling webhook: ${err.message}`);
+         res.status(400).send(`Webhook Error: ${err.message}`);
+      }
+     });
+
+    
+
 
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;

@@ -10,6 +10,7 @@
 	"author": "CareerNavigators",
 	"license": "ISC",
 	"dependencies": {
+		"@stripe/react-stripe-js": "^2.5.1",
 		"cors": "^2.8.5",
 		"dayjs": "^1.11.10",
 		"dotenv": "^16.3.2",
@@ -19,6 +20,7 @@
 		"mongoose-error-humanizer": "^1.0.1",
 		"mongoose-paginate-v2": "^1.8.0",
 		"node-console-colors": "^1.1.5",
-		"nodemailer": "^6.9.9"
+		"nodemailer": "^6.9.9",
+		"stripe": "^14.19.0"
 	}
 }

@@ -280,6 +280,10 @@ const ecommerceSchema = new mongo.Schema({
   price: {
     type: Number,
   },
+  quantity:{
+    type: Number,
+    default: 1,
+  }
 });
 const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
 
@@ -294,8 +298,30 @@ const cartSchema = new mongo.Schema({
     type: Boolean,
     default: false,
   },
+  quantity:{
+    type: Number,
+    default: 1,
+  }
 });
 const Cart = mongo.model("cart", cartSchema);
+
+
+// order
+const orderSchema = new mongo.Schema(
+  {
+    products: [
+      { productId: { type: String }, quantity: { type: Number, default: 1 }, title:{type:String} },
+    ],
+    subtotal: { type: Number, required: true },
+    total: { type: Number, required: true },
+    shipping: { type: Object, required: true },
+    delivery_status: { type: String, default: "pending" },
+    payment_status: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+const Order = mongo.model("Order", orderSchema);
 
 noteSchema.post("save", humanizeErrors);
 noteSchema.post("update", humanizeErrors);
@@ -336,4 +362,4 @@ timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
 
 const Timeline = mongo.model("Timeline",  timeLineSchema);;
-module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart };
+module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart, Order };
