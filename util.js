@@ -10,6 +10,7 @@ const calendar = require("googleapis").google.calendar("v3");
  *
  */
 function erroResponse(res, err) {
+  console.log(err);
   if (err?.code == 11000) {
     res.status(400).send({ msg: err.message });
   }

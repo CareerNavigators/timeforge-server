@@ -5,6 +5,7 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const calendar = require("googleapis").google.calendar("v3");
 const { google } = require("googleapis");
+const { default: axios } = require("axios");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 const utc = require("dayjs/plugin/utc");
@@ -312,6 +313,7 @@ async function run() {
             });
         } else if ((req.query.type = "single")) {
           Meeting.findById(req.query.id)
+            .populate("createdBy", "name email img_profile")
             .then((result) => {
               res.status(200).send(result);
             })
@@ -467,6 +469,29 @@ async function run() {
       }
     });
 
+    app.post(
+      "/checkattendee",
+      logger,
+      emptyBodyChecker,
+      checkBody(["email", "eventid"]),
+      async (req, res) => {
+        const result = await Attendee.where("event")
+          .equals(req.body.eventid)
+          .where("email")
+          .equals(req.body.email);
+        if (result.length != 0) {
+          return res.status(200).send({ msg: "Valid Attendee" });
+        } else {
+          const result2= await Meeting.findById(req.body.eventid).populate("createdBy","email")
+          if (result2) {
+            if (result2?.createdBy?.email==req.body.email) {
+             return res.status(200).send({ msg: "Valid Attendee" });
+            }
+          }
+          return res.status(400).send({ msg: "Invalid Attendee" });
+        }
+      }
+    );
     app.post(
       "/attendee",
       logger,
@@ -892,10 +917,12 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
-      for (let index = 801; index <= 817; index++) {
-        let fu = `=COUNTIF(Links!A:A,"${index}")`;
-        console.log(fu);
-      }
+      Meeting.find().then(async (result) => {
+        for (const item of result) {
+          item.meetLink = {};
+          await item.save();
+        }
+      });
       res.send({ msg: "DONE" });
     });
 
@@ -1242,18 +1269,35 @@ async function run() {
       emptyQueryChecker,
       async (req, res) => {
         try {
-          setCreadential(req.query.userId);
+          await setCreadential(req.query.userId);
           let result = null;
           if (req.query.type == "all") {
             result = await GoogleCalendarEvent.findOneAndDelete({
               _id: new mongo.Types.ObjectId(req.params.id),
             });
           } else if (req.query.type == "single") {
-            result = await GoogleCalendarEvent.findOneAndDelete({
-              _id: new mongo.Types.ObjectId(req.params.id),
+            const calendarId = await GetCalendarId();
+            const googleCal = await GoogleCalendarEvent.findOne({
+              event: new mongo.Types.ObjectId(req.query.eventid),
             });
+            if (googleCal) {
+              if (googleCal.googleEvents.length == 1) {
+                result = await GoogleCalendarEvent.findOneAndDelete({
+                  event: new mongo.Types.ObjectId(req.query.eventid),
+                });
+              } else {
+                googleCal.googleEvents.pull({ id: req.params.id });
+                await googleCal.save();
+                if (calendarId) {
+                  result = await calendar.events.delete({
+                    auth: oauth2Client,
+                    eventId: req.params.id,
+                    calendarId: calendarId,
+                  });
+                }
+              }
+            }
           }
-
           if (result) {
             res.status(200).send({ msg: "Delete Successful." });
           } else {
@@ -1264,6 +1308,70 @@ async function run() {
         }
       }
     );
+    app.post(
+      "/createmeet",
+      logger,
+      emptyBodyChecker,
+      checkBody(["roomName", "eventid"]),
+      async (req, res) => {
+        try {
+          const meeting = await Meeting.findById(req.body.eventid);
+          if (meeting) {
+            const response = await axios.post(
+              "https://api.daily.co/v1/rooms/",
+              {
+                name: req.body.roomeName,
+                properties: {
+                  enable_people_ui: true,
+                  enable_pip_ui: true,
+                  enable_emoji_reactions: true,
+                  enable_hand_raising: true,
+                  enable_prejoin_ui: true,
+                  enable_chat: true,
+                  enable_advanced_chat: true,
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${process.env.DAILY_TOKEN}`,
+                },
+              }
+            );
+            if (response?.data) {
+              let newMeetLink = {
+                id: response.data.id,
+                name: response.data.name,
+                url: response.data.url,
+              };
+              meeting.meetLink = newMeetLink;
+              await meeting.save();
+
+              const attendees = await Attendee.where("event").equals(
+                meeting._id
+              );
+              let message = {
+                from: process.env.MAIL,
+                subject: `Meetlink for ${meeting.title}`,
+                html: `
+                <h4>Meeting Title: ${meeting.title} </h4>
+                <p>Meeting Link: <a href=${req.body.origin}/meet/${meeting._id}> ${req.body.origin}/meet/${meeting._id} </a> </p>
+                `,
+              };
+              for (const attendee of attendees) {
+                message["to"] = attendee.email;
+                mailTransporter.sendMail(message);
+              }
+              return res.status(201).send({ msg: "Link Created" });
+            } else {
+              return res.status(400).send({ msg: "Link Creation Failed" });
+            }
+          }
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    );
+  
   } catch (e) {
     console.log(e);
     return;
