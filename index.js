@@ -7,7 +7,15 @@ const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 dayjs.extend(customParseFormat);
-const { User, Meeting, Attendee, Note, Ecommerce, Cart, Order } = require("./schema");
+const {
+  User,
+  Meeting,
+  Attendee,
+  Note,
+  Ecommerce,
+  Cart,
+  Order,
+} = require("./schema");
 const {
   logger,
   checkBody,
@@ -48,13 +56,12 @@ const serviceAccount = {
   client_x509_cert_url: process.env.CLIENT_X509_CERT_URL,
   universe_domain: process.env.UNIVERSE_DOMAIN,
 };
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 async function run() {
   try {
-
     /**
      * To create a new user, send a POST request to "/user" endpoint.
      * This will add the user to the database.
@@ -247,7 +254,8 @@ async function run() {
         "mic",
         "offline",
         "startTime",
-        "endTime",,
+        "endTime",
+        ,
       ]),
       async (req, res) => {
         let expTime;
@@ -286,7 +294,6 @@ async function run() {
      * 200 - meetings or meeting
      * 404 - not found event
      */
-
 
     app.get("/meeting", logger, emptyQueryChecker, async (req, res) => {
       try {
@@ -650,26 +657,28 @@ async function run() {
     });
 
     // payment
-    app.post("/create-checkout-session", async (req, res) => {
+    app.post("/create-checkout-session",logger, async (req, res) => {
       const { products } = req.body;
+
       const lineItems = products.map((product) => {
-        const quantity = product?.quantity && product.quantity > 0 ? product.quantity : 1;
-         return {
-           price_data: {
-             currency: "usd",
-             product_data: {
-               name: product?.title,
-               images: [product?.img],
-             },
-             unit_amount: Math.round(product.price * 100),
-           },
-           quantity: quantity
-         };
+        const quantity =
+          product?.quantity && product.quantity > 0 ? product.quantity : 1;
+        return {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: product?.title,
+              images: [product?.img],
+            },
+            unit_amount: Math.round(product.price * 100),
+          },
+          quantity: quantity,
+        };
       });
       const session = await stripe.checkout.sessions.create({
-        payment_method_types:["card"],
+        payment_method_types: ["card"],
         shipping_address_collection: {
-          allowed_countries: ["US", "CA", "BD",],
+          allowed_countries: ["US", "CA", "BD"],
         },
         shipping_options: [
           {
@@ -719,68 +728,59 @@ async function run() {
           enabled: true,
         },
         // customer: customer.id,
-        line_items:lineItems,
+        line_items: lineItems,
         mode: "payment",
-        success_url:"http://localhost:5173/success"
-      })
-     
+        success_url: "http://localhost:5173/success",
+      });
+      //  console.log(session.id);
+       console.log(session);
       // Assuming you want to do something with lineItems, like sending it back as a response
-      res.json({id:session.id});
-     });
+      res.json({ id: session.id });
+    });
 
+    let endpointSecret;
+      // "whsec_ceb1fa9b3e1cbb1c499c40ca28c4db87389eeda4e2495d67e3e54bef5cd4e0d5";
+    app.post(
+      "/webhook",
+      express.raw({ type: "application/json" }),
+      (req, res) => {
+        const sig = req.headers["stripe-signature"];
 
-     app.post('/webhook', async (req, res) => {
-      const event = req.body;
-     
-      try {
-         if (event.type === 'checkout.session.completed') {
-           const session = event.data.object;
-           console.log(session);
-     
-           // Extract necessary details from the session
-           const products = session.line_items.data.map(item => ({
-             productId: item.id,
-             quantity: item.quantity,
-             title: item.title, // Assuming you want to store the product name
-           }));
-           console.log(products);
-           const subtotal = session.amount_subtotal;
-           const total = session.amount_total;
-           const shipping = session.shipping; // Assuming you want to store the shipping details
-           const payment_status = session.payment_status;
-     
-          //  Create a new order
-           const newOrder = new Order({
-             products,
-             subtotal,
-             total,
-             shipping,
-             payment_status,
-           });
+        let data;
+        let eventType;
 
-          // const testOrder = new Order({
-          //   products: [{ productId: 'test1', quantity: 1, title: 'Test Product' }],
-          //   subtotal: 1000,
-          //   total: 1000,
-          //   shipping: {},
-          //   payment_status: 'succeeded',
-          //  });
-     
-           // Save the order to the database
-           await newOrder.save();
-           console.log('Order saved successfully');
-         }
-     
-         // Return a response to acknowledge receipt of the event
-         res.json({received: true});
-      } catch (err) {
-         console.error(`Error handling webhook: ${err.message}`);
-         res.status(400).send(`Webhook Error: ${err.message}`);
+        if (endpointSecret) {
+          let event;
+          try {
+            event = stripe.webhooks.constructEvent(
+              req.body,
+              sig,
+              endpointSecret
+            );
+            console.log("Webhook verified");
+          } catch (err) {
+            console.log(`Webhook Error: ${err.message}`);
+            res.status(400).send(`Webhook Error: ${err.message}`);
+            return;
+          }
+          data = event.data.object;
+          eventType = event.type;
+        } else {
+          data = req.body.data.Object;
+          eventType = req.body.type;
+        }
+
+        // Handle the event
+        if (eventType === "checkout.session.completed") {
+          const session = data;
+          console.log(session);
+          console.log(`Checkout session completed. Session ID: ${session}`);
+        }
+
+        // Return a 200 response to acknowledge receipt of the event
+        res.send().end();
       }
-     });
-
-    
-
+    );
 
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;
@@ -995,30 +995,25 @@ async function run() {
         }
       }
     );
-    app.delete(
-      "/guest/:id",
-      logger,
-      emptyQueryChecker,
-      async (req, res) => {
-        try {
-          const timeline = await Timeline.findById(req.params.id);
-          if (timeline) {
-            const index = req.query.index;
-            if (index >=  0 && index < timeline.guest.length) {
-              timeline.guest.splice(index,  1); 
-              const result = await timeline.save();
-              res.status(200).send(result);
-            } else {
-              res.status(400).send({ msg: "Invalid index." });
-            }
+    app.delete("/guest/:id", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const timeline = await Timeline.findById(req.params.id);
+        if (timeline) {
+          const index = req.query.index;
+          if (index >= 0 && index < timeline.guest.length) {
+            timeline.guest.splice(index, 1);
+            const result = await timeline.save();
+            res.status(200).send(result);
           } else {
-            res.status(400).send({ msg: "Delete failed." });
+            res.status(400).send({ msg: "Invalid index." });
           }
-        } catch (e) {
-          erroResponse(res, e);
+        } else {
+          res.status(400).send({ msg: "Delete failed." });
         }
+      } catch (e) {
+        erroResponse(res, e);
       }
-    )
+    });
   } catch (e) {
     console.log(e);
     return;
