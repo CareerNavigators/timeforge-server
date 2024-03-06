@@ -132,6 +132,14 @@ const meetingSchema = new mongo.Schema(
       type: String,
       default: "",
     },
+    meetLink:{
+      type:{
+        id:String,
+        name:String,
+        url:String,
+      },
+      default:{}
+    }
   },
   {
     timestamps: true,

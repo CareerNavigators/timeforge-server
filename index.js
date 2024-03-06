@@ -5,6 +5,7 @@ const mongo = require("mongoose");
 const admin = require("firebase-admin");
 const calendar = require("googleapis").google.calendar("v3");
 const { google } = require("googleapis");
+const { default: axios } = require("axios");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 const utc = require("dayjs/plugin/utc");
@@ -892,10 +893,12 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
-      for (let index = 801; index <= 817; index++) {
-        let fu = `=COUNTIF(Links!A:A,"${index}")`;
-        console.log(fu);
-      }
+      Meeting.find().then(async (result) => {
+        for (const item of result) {
+          item.meetLink = {};
+          await item.save();
+        }
+      });
       res.send({ msg: "DONE" });
     });
 
@@ -1278,6 +1281,53 @@ async function run() {
           }
         } catch (error) {
           erroResponse(res, error);
+        }
+      }
+    );
+    app.post(
+      "/createmeet",
+      logger,
+      emptyBodyChecker,
+      checkBody(["roomName", "eventid"]),
+      async (req, res) => {
+        try {
+          const meeting = await Meeting.findById(req.body.eventid);
+          if (meeting) {
+            const response = await axios.post(
+              "https://api.daily.co/v1/rooms/",
+              {
+                name: req.body.roomeName,
+                properties: {
+                  enable_people_ui: true,
+                  enable_pip_ui: true,
+                  enable_emoji_reactions: true,
+                  enable_hand_raising: true,
+                  enable_prejoin_ui: true,
+                  enable_chat: true,
+                  enable_advanced_chat: true,
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${process.env.DAILY_TOKEN}`,
+                },
+              }
+            );
+            if (response?.data) {
+              let newMeetLink = {
+                id: response.data.id,
+                name: response.data.name,
+                url: response.data.url,
+              };
+              meeting.meetLink = newMeetLink;
+              await meeting.save();
+              return res.status(201).send({ msg: "Link Created" });
+            } else {
+              return res.status(400).send({ msg: "Link Creation Failed" });
+            }
+          }
+        } catch (e) {
+          erroResponse(res, e);
         }
       }
     );
