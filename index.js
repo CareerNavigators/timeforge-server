@@ -313,6 +313,7 @@ async function run() {
             });
         } else if ((req.query.type = "single")) {
           Meeting.findById(req.query.id)
+            .populate("createdBy", "name email img_profile")
             .then((result) => {
               res.status(200).send(result);
             })
@@ -468,6 +469,29 @@ async function run() {
       }
     });
 
+    app.post(
+      "/checkattendee",
+      logger,
+      emptyBodyChecker,
+      checkBody(["email", "eventid"]),
+      async (req, res) => {
+        const result = await Attendee.where("event")
+          .equals(req.body.eventid)
+          .where("email")
+          .equals(req.body.email);
+        if (result.length != 0) {
+          return res.status(200).send({ msg: "Valid Attendee" });
+        } else {
+          const result2= await Meeting.findById(req.body.eventid).populate("createdBy","email")
+          if (result2) {
+            if (result2?.createdBy?.email==req.body.email) {
+             return res.status(200).send({ msg: "Valid Attendee" });
+            }
+          }
+          return res.status(400).send({ msg: "Invalid Attendee" });
+        }
+      }
+    );
     app.post(
       "/attendee",
       logger,
@@ -1321,6 +1345,22 @@ async function run() {
               };
               meeting.meetLink = newMeetLink;
               await meeting.save();
+
+              const attendees = await Attendee.where("event").equals(
+                meeting._id
+              );
+              let message = {
+                from: process.env.MAIL,
+                subject: `Meetlink for ${meeting.title}`,
+                html: `
+                <h4>Meeting Title: ${meeting.title} </h4>
+                <p>Meeting Link: <a href=${req.body.origin}/meet/${meeting._id}> ${req.body.origin}/meet/${meeting._id} </a> </p>
+                `,
+              };
+              for (const attendee of attendees) {
+                message["to"] = attendee.email;
+                mailTransporter.sendMail(message);
+              }
               return res.status(201).send({ msg: "Link Created" });
             } else {
               return res.status(400).send({ msg: "Link Creation Failed" });
@@ -1331,6 +1371,7 @@ async function run() {
         }
       }
     );
+  
   } catch (e) {
     console.log(e);
     return;
