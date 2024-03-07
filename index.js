@@ -657,10 +657,13 @@ async function run() {
     });
 
     // payment
-    app.post("/create-checkout-session",logger, async (req, res) => {
-      const { products } = req.body;
+    app.post("/create-checkout-session", logger, async (req, res) => {
+      const { products, email } = req.body;
+      // console.log(products);
 
+      let productId = [];
       const lineItems = products.map((product) => {
+        productId.push(product?.id);
         const quantity =
           product?.quantity && product.quantity > 0 ? product.quantity : 1;
         return {
@@ -675,6 +678,21 @@ async function run() {
           quantity: quantity,
         };
       });
+      const order = new Order({
+        productId: productId,
+        email: email,
+        // sessionId: sessionId,
+        // address: address,
+      });
+      try {
+        await order.save();
+        console.log("Order saved:", order);
+        // res.status(200).send("Order saved successfully");
+      } catch (error) {
+        console.error("Error saving order:", error);
+        // res.status(500).send("Error saving order");
+      }
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         shipping_address_collection: {
@@ -727,60 +745,36 @@ async function run() {
         phone_number_collection: {
           enabled: true,
         },
+        customer_email: email,
         // customer: customer.id,
         line_items: lineItems,
+        // email: email,
         mode: "payment",
-        success_url: "http://localhost:5173/success",
+        success_url: `${req.headers.origin}/success?id=${order._id}`,
+        cancel_url: `${req.headers.origin}/cancel?id=${order._id}`,
       });
       //  console.log(session.id);
-       console.log(session);
+      // console.log(session);
+      order.sessionId = session.id;
+      await order.save();
+
       // Assuming you want to do something with lineItems, like sending it back as a response
       res.json({ id: session.id });
     });
 
-    let endpointSecret;
-      // "whsec_ceb1fa9b3e1cbb1c499c40ca28c4db87389eeda4e2495d67e3e54bef5cd4e0d5";
-    app.post(
-      "/webhook",
-      express.raw({ type: "application/json" }),
-      (req, res) => {
-        const sig = req.headers["stripe-signature"];
-
-        let data;
-        let eventType;
-
-        if (endpointSecret) {
-          let event;
-          try {
-            event = stripe.webhooks.constructEvent(
-              req.body,
-              sig,
-              endpointSecret
-            );
-            console.log("Webhook verified");
-          } catch (err) {
-            console.log(`Webhook Error: ${err.message}`);
-            res.status(400).send(`Webhook Error: ${err.message}`);
-            return;
-          }
-          data = event.data.object;
-          eventType = event.type;
-        } else {
-          data = req.body.data.Object;
-          eventType = req.body.type;
-        }
-
-        // Handle the event
-        if (eventType === "checkout.session.completed") {
-          const session = data;
-          console.log(session);
-          console.log(`Checkout session completed. Session ID: ${session}`);
-        }
-
-        // Return a 200 response to acknowledge receipt of the event
-        res.send().end();
+    // let endpointSecret;
+    // "whsec_ceb1fa9b3e1cbb1c499c40ca28c4db87389eeda4e2495d67e3e54bef5cd4e0d5";
+    app.post("/paymentConfirm", logger, async (req, res) => {
+      try{
+        const id  = req.body;
+        console.log("Order ID from frontend:", id);
+        const order = await Order.findById(req.body.id);
+        console.log(order);
+      }catch(err){
+        console.log(err.message);
       }
-    );
+      res.send("")
+    });
 
     app.get("/usercharts", logger, emptyQueryChecker, async (req, res) => {
       let id = req.query.id;

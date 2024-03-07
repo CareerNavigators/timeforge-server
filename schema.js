@@ -153,7 +153,7 @@ meetingSchema.pre("save", async function (next) {
         event: this._id,
         createdBy: this.createdBy,
       });
-      let timelineResult=await newTimeline.save();
+      let timelineResult = await newTimeline.save();
     }
     next();
   } catch (e) {
@@ -172,7 +172,10 @@ meetingSchema.post("findOneAndDelete", async function (doc, next) {
       await user.save();
     }
     await Note.findOneAndDelete({ meeting: doc._id, createdBy: doc.createdBy });
-    await Timeline.findOneAndDelete({ event: doc._id, createdBy: doc.createdBy });
+    await Timeline.findOneAndDelete({
+      event: doc._id,
+      createdBy: doc.createdBy,
+    });
     await Attendee.deleteMany({ meeting: doc._id });
     console.log("findOneAndDelete");
     next();
@@ -209,7 +212,7 @@ const attendeeSchema = new mongo.Schema(
     slot: {
       type: mongo.Schema.Types.Mixed,
       require: true,
-      default: {}
+      default: {},
     },
   },
   {
@@ -280,43 +283,57 @@ const ecommerceSchema = new mongo.Schema({
   price: {
     type: Number,
   },
-  quantity:{
+  quantity: {
     type: Number,
     default: 1,
-  }
+  },
 });
 const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
 
 const cartSchema = new mongo.Schema({
-  userId:{
-    type: String
+  userId: {
+    type: String,
   },
-  productId:{
-    type:  [mongo.Schema.Types.ObjectId],
+  productId: {
+    type: [mongo.Schema.Types.ObjectId],
   },
   isSold: {
     type: Boolean,
     default: false,
   },
-  quantity:{
+  quantity: {
     type: Number,
     default: 1,
-  }
+  },
 });
 const Cart = mongo.model("cart", cartSchema);
-
 
 // order
 const orderSchema = new mongo.Schema(
   {
-    products: [
-      { productId: { type: String }, quantity: { type: Number, default: 1 }, title:{type:String} },
-    ],
-    subtotal: { type: Number, required: true },
-    total: { type: Number, required: true },
-    shipping: { type: Object, required: true },
-    delivery_status: { type: String, default: "pending" },
-    payment_status: { type: String, required: true },
+    productId: {
+      type: [mongo.Schema.Types.ObjectId],
+      ref: "ecommerce",
+    },
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      match: [
+        /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+        "Invalid Email.",
+      ],
+    },
+    sessionId: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    addresss: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -330,7 +347,7 @@ const timeLineSchema = new mongo.Schema(
   {
     event: {
       type: mongo.Schema.Types.ObjectId,
-      ref:"Meeting",
+      ref: "Meeting",
       required: true,
     },
     createdBy: {
@@ -339,7 +356,7 @@ const timeLineSchema = new mongo.Schema(
     },
     guest: {
       type: [mongo.Schema.Types.ObjectId],
-      ref:"User",
+      ref: "User",
       default: [],
     },
     timeline: {
@@ -361,5 +378,14 @@ timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
 
-const Timeline = mongo.model("Timeline",  timeLineSchema);;
-module.exports = { User, Meeting, Attendee, Note,  Timeline, Ecommerce, Cart, Order };
+const Timeline = mongo.model("Timeline", timeLineSchema);
+module.exports = {
+  User,
+  Meeting,
+  Attendee,
+  Note,
+  Timeline,
+  Ecommerce,
+  Cart,
+  Order,
+};
