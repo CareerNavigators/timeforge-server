@@ -12,40 +12,40 @@ TimeForge Backend Server serves as the backbone of the TimeForge project, provid
 
 #### Daily
 
-- **DAILY_TOKEN:**
+- **DAILY_TOKEN:** [Daily.co](http://daily.co/)
 
 #### OAuth2
 
-- **GOOGLE_CLIENT_ID:**
-- **GOOGLE_CLIENT_SECRET:**
-- **GOOGLE_REDIRECT_URI:**
+- **GOOGLE_CLIENT_ID:** [Google](https://console.cloud.google.com/apis/credentials) 
+- **GOOGLE_CLIENT_SECRET:** [Google](https://console.cloud.google.com/apis/credentials) 
+- **GOOGLE_REDIRECT_URI:** [Google](https://console.cloud.google.com/apis/credentials) 
 
 #### Database
 
-- **DB_USER:**
-- **DB_PASSWORD:**
+- **DB_USER:** MongoDB username
+- **DB_PASSWORD:** MongoDB password
 
 #### Gmail
 
-- **MAIL:**
-- **PASS:**
+- **MAIL:** Gmail
+- **PASS:** Gmail Apps Password
 
 #### Firebase
 
-- **TYPE:**
-- **PROJECT_ID:**
-- **PRIVATE_KEY_ID:**
-- **PRIVATE_KEY:**
-- **CLIENT_EMAIL:**
-- **CLIENT_ID:**
-- **AUTH_URI:**
-- **TOKEN_URI:**
-- **AUTH_PROVIDER_X509_CERT_URL:**
-- **CLIENT_X509_CERT_URL:**
+- **TYPE:** service_account 
+- **PROJECT_ID:** Firebase project id
+- **PRIVATE_KEY_ID:** Firebase project private ID
+- **PRIVATE_KEY:** Firebase project private key
+- **CLIENT_EMAIL:** Service account mail
+- **CLIENT_ID:** Service account Id
+- **AUTH_URI:** https://accounts.google.com/o/oauth2/auth
+- **TOKEN_URI:** https://oauth2.googleapis.com/token
+- **AUTH_PROVIDER_X509_CERT_URL:** https://www.googleapis.com/oauth2/v1/certs
+- **CLIENT_X509_CERT_URL:** CERT url of googleapi
 
 #### Universe
 
-- **UNIVERSE_DOMAIN:**
+- **UNIVERSE_DOMAIN:** googleapis.com
 
 
 1. **Clone the repository:**
