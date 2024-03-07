@@ -482,10 +482,13 @@ async function run() {
         if (result.length != 0) {
           return res.status(200).send({ msg: "Valid Attendee" });
         } else {
-          const result2= await Meeting.findById(req.body.eventid).populate("createdBy","email")
+          const result2 = await Meeting.findById(req.body.eventid).populate(
+            "createdBy",
+            "email"
+          );
           if (result2) {
-            if (result2?.createdBy?.email==req.body.email) {
-             return res.status(200).send({ msg: "Valid Attendee" });
+            if (result2?.createdBy?.email == req.body.email) {
+              return res.status(200).send({ msg: "Valid Attendee" });
             }
           }
           return res.status(400).send({ msg: "Invalid Attendee" });
@@ -1371,7 +1374,29 @@ async function run() {
         }
       }
     );
-  
+    app.delete("/deletemeeting/:id", logger, async (req, res) => {
+      try {
+        const meeting = await Meeting.findById(req.params.id);
+        if (meeting.meetLink?.name != "") {
+          const result = await axios.delete(
+            `https://api.daily.co/v1/rooms/${meeting.meetLink?.name}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.DAILY_TOKEN}`,
+              },
+            }
+          );
+          meeting.meetLink={}
+          await meeting.save()
+          res.send({ msg: "Delete Successfully" });
+        } else {
+          res.status(200).send({ msg: "Nothing to delete" });
+        }
+      } catch (e) {
+        erroResponse(res, e);
+      }
+      
+    });
   } catch (e) {
     console.log(e);
     return;
