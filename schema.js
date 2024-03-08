@@ -1,6 +1,8 @@
 const mongo = require("mongoose");
 const humanizeErrors = require("mongoose-error-humanizer");
+const calendar = require("googleapis").google.calendar("v3");
 const mongoosePaginate = require("mongoose-paginate-v2");
+const { oauth2Client } = require("./setup");
 const userSchema = new mongo.Schema(
   {
     name: {
@@ -54,6 +56,10 @@ const userSchema = new mongo.Schema(
     totalMeeting: {
       type: Number,
       default: 0,
+    },
+    isRefreshToken: {
+      type: Boolean,
+      default: false,
     },
   },
   {
@@ -126,6 +132,14 @@ const meetingSchema = new mongo.Schema(
       type: String,
       default: "",
     },
+    meetLink:{
+      type:{
+        id:String,
+        name:String,
+        url:String,
+      },
+      default:{}
+    }
   },
   {
     timestamps: true,
@@ -177,7 +191,9 @@ meetingSchema.post("findOneAndDelete", async function (doc, next) {
       createdBy: doc.createdBy,
     });
     await Attendee.deleteMany({ meeting: doc._id });
-    console.log("findOneAndDelete");
+    await GoogleCalendarEvent.findOneAndDelete({
+      event: new mongo.Types.ObjectId(doc._id),
+    });
     next();
   } catch (e) {
     console.log(e.message);
@@ -232,13 +248,48 @@ attendeeSchema.post("save", async function (doc) {
     console.log(error);
   }
 });
-attendeeSchema.post("findOneAndDelete", async function (doc) {
+attendeeSchema.post("findOneAndDelete", async function (doc, next) {
   try {
     const meeting = await Meeting.findById(doc.event);
     meeting.attendee = (await Attendee.where("event").equals(doc.event)).length;
     await meeting.save();
+    const googleCal = await GoogleCalendarEvent.findOne({
+      event: new mongo.Types.ObjectId(doc.event),
+    }).select("googleEvents");
+    const firstKey = Object.keys(doc.slot)[0];
+    const schedule = `${firstKey}-${doc.slot[firstKey]}`;
+    const eventGoogle = googleCal.googleEvents.find(
+      (event) => event.schedule === schedule
+    );
+    const isCredentialSet = await require("./util").setCreadential(meeting.createdBy);
+    if (isCredentialSet && googleCal && eventGoogle) {
+      const calendarId = await require("./util").GetCalendarId();
+      if (calendarId) {
+        const googleEvent = await calendar.events.get({
+          auth: oauth2Client,
+          calendarId: calendarId,
+          eventId: eventGoogle.id,
+        });
+        const existingAttendees = googleEvent.data.attendees || [];
+        console.log("~ existingAttendees", existingAttendees);
+        const updatedAttendees = existingAttendees.filter(
+          (x) => x.email != doc.email
+        );
+        console.log("~ updatedAttendees", updatedAttendees);
+        await calendar.events.patch({
+          auth: oauth2Client,
+          calendarId: calendarId,
+          eventId: eventGoogle.id,
+          requestBody: {
+            attendees: updatedAttendees,
+          },
+        });
+      }
+    }
   } catch (e) {
     console.log(`attendeeSchema:post:findOneAndDelete:${e.message}`);
+  } finally {
+    next();
   }
 });
 
@@ -269,6 +320,9 @@ const noteSchema = new mongo.Schema(
     timestamps: true,
   }
 );
+noteSchema.post("save", humanizeErrors);
+noteSchema.post("update", humanizeErrors);
+const Note = mongo.model("Note", noteSchema);
 
 const ecommerceSchema = new mongo.Schema({
   title: {
@@ -287,7 +341,12 @@ const ecommerceSchema = new mongo.Schema({
     type: Number,
     default: 1,
   },
+  isSoldOut: {
+    type: Boolean,
+    default: false,
+  },
 });
+ecommerceSchema.plugin(mongoosePaginate);
 const Ecommerce = mongo.model("ecommerce", ecommerceSchema);
 
 const cartSchema = new mongo.Schema({
@@ -339,10 +398,6 @@ const orderSchema = new mongo.Schema(
 );
 
 const Order = mongo.model("Order", orderSchema);
-
-noteSchema.post("save", humanizeErrors);
-noteSchema.post("update", humanizeErrors);
-const Note = mongo.model("Note", noteSchema);
 const timeLineSchema = new mongo.Schema(
   {
     event: {
@@ -377,8 +432,127 @@ const timeLineSchema = new mongo.Schema(
 timeLineSchema.plugin(mongoosePaginate);
 timeLineSchema.post("save", humanizeErrors);
 timeLineSchema.post("update", humanizeErrors);
-
 const Timeline = mongo.model("Timeline", timeLineSchema);
+const tokenSchema = new mongo.Schema(
+  {
+    user: {
+      type: mongo.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+    refreshToken: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    registeredEmail: {
+      type: String,
+      lowercase: true,
+      require: true,
+      unique: true,
+      trim: true,
+      match: [
+        /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+        "Invalid Email.",
+      ],
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+tokenSchema.plugin(mongoosePaginate);
+tokenSchema.post("save", humanizeErrors);
+tokenSchema.post("update", humanizeErrors);
+tokenSchema.pre("save", async function (next) {
+  try {
+    if (this.isNew) {
+      User.findById(this.user).then(async (result) => {
+        if (result) {
+          result.isRefreshToken = true;
+          await result.save();
+        }
+      });
+    }
+    next();
+  } catch (e) {
+    console.log(e.message);
+    next();
+  }
+  next();
+});
+
+const Token = mongo.model("Token", tokenSchema);
+
+const googleCalendarSchema = new mongo.Schema(
+  {
+    event: {
+      type: mongo.Schema.Types.ObjectId,
+      ref: "Meeting",
+    },
+    googleEvents: {
+      type: [
+        {
+          schedule: {
+            type: String,
+            default: "",
+            trim: true,
+          },
+          htmlLink: {
+            type: String,
+            trim: true,
+            default: "",
+          },
+          id: {
+            type: String,
+            trim: true,
+            default: "",
+          },
+          meetLink: {
+            type: String,
+            trim: true,
+            default: "",
+          },
+        },
+      ],
+      default: [],
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+googleCalendarSchema.post("findOneAndDelete", async function (doc, next) {
+  if (doc == null) {
+    next();
+    return;
+  }
+  try {
+    let calendarId = await require("./util").GetCalendarId();
+    if (calendarId) {
+      for (const item of doc.googleEvents) {
+        await calendar.events.delete({
+          auth: oauth2Client,
+          eventId: item.id,
+          calendarId: calendarId,
+        });
+      }
+    }
+    next();
+  } catch (e) {
+    console.log(e.message);
+    next();
+  } finally {
+    next();
+  }
+});
+
+const GoogleCalendarEvent = mongo.model(
+  "GoogleCalendarEvent",
+  googleCalendarSchema
+);
 module.exports = {
   User,
   Meeting,
@@ -387,5 +561,6 @@ module.exports = {
   Timeline,
   Ecommerce,
   Cart,
-  Order,
+  Token,
+  GoogleCalendarEvent,
 };

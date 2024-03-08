@@ -3,10 +3,15 @@ const express = require("express");
 const cors = require("cors");
 const mongo = require("mongoose");
 const admin = require("firebase-admin");
-const nodemailer = require("nodemailer");
+const calendar = require("googleapis").google.calendar("v3");
+const { google } = require("googleapis");
+const { default: axios } = require("axios");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
+const utc = require("dayjs/plugin/utc");
+dayjs.extend(utc);
 dayjs.extend(customParseFormat);
+const { oauth2Client, mailTransporter } = require("./setup");
 const {
   User,
   Meeting,
@@ -14,6 +19,9 @@ const {
   Note,
   Ecommerce,
   Cart,
+  Timeline,
+  Token,
+  GoogleCalendarEvent,
   Order,
 } = require("./schema");
 const {
@@ -27,21 +35,17 @@ const {
   UpdateHelper,
   DeleteUser,
   ProfileImageSizeCutter,
+  setCreadential,
+  GetCalendarId,
 } = require("./util");
+
 const app = express();
 const port = process.env.PORT || 5111;
 app.use(cors());
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@timeforge.ob9twtj.mongodb.net/TimeForge?retryWrites=true&w=majority`;
 mongo.connect(uri);
-const config = {
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL,
-    pass: process.env.PASS,
-  },
-};
-const mailTransporter = nodemailer.createTransport(config);
+
 // firebase admin keys
 const serviceAccount = {
   type: process.env.TYPE,
@@ -60,6 +64,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
 async function run() {
   try {
     /**
@@ -310,6 +315,7 @@ async function run() {
             });
         } else if ((req.query.type = "single")) {
           Meeting.findById(req.query.id)
+            .populate("createdBy", "name email img_profile")
             .then((result) => {
               res.status(200).send(result);
             })
@@ -354,6 +360,7 @@ async function run() {
 
     //timeline API
     app.get("/timeline", logger, emptyQueryChecker, async (req, res) => {
+      console.log(req.query);
       try {
         if (req.query.type == "all") {
           Timeline.where("createdBy")
@@ -366,11 +373,24 @@ async function run() {
                 res.send({ msg: "No timeline found." });
               }
             });
-        } else if ((req.query.type = "single")) {
+        } else if (req.query.type == "single") {
           Timeline.findById(req.query.id)
             .select("event createdBy timeline")
             .populate("event", "startTime endTime")
             .then((result) => {
+              res.status(200).send(result);
+            })
+            .catch((e) => {
+              console.log(e.message);
+              res.status(404).send({ msg: "Timeline not found." });
+            });
+        } else if (req.query.type == "event") {
+          console.log("query event");
+          Timeline.findOne({ event: new mongo.Types.ObjectId(req.query.id) })
+            .select("event createdBy timeline")
+            .populate("event", "startTime endTime")
+            .then((result) => {
+              console.log("~ result", result);
               res.status(200).send(result);
             })
             .catch((e) => {
@@ -452,17 +472,95 @@ async function run() {
     });
 
     app.post(
+      "/checkattendee",
+      logger,
+      emptyBodyChecker,
+      checkBody(["email", "eventid"]),
+      async (req, res) => {
+        const result = await Attendee.where("event")
+          .equals(req.body.eventid)
+          .where("email")
+          .equals(req.body.email);
+        if (result.length != 0) {
+          return res.status(200).send({ msg: "Valid Attendee" });
+        } else {
+          const result2 = await Meeting.findById(req.body.eventid).populate(
+            "createdBy",
+            "email"
+          );
+          if (result2) {
+            if (result2?.createdBy?.email == req.body.email) {
+              return res.status(200).send({ msg: "Valid Attendee" });
+            }
+          }
+          return res.status(400).send({ msg: "Invalid Attendee" });
+        }
+      }
+    );
+    app.post(
       "/attendee",
       logger,
       emptyBodyChecker,
       checkBody(["name", "email", "event", "slot"]),
       async (req, res) => {
         try {
+          let googleCalResult = null;
+          const meeting = await Meeting.findById(req.body.event).select(
+            "createdBy events -_id"
+          );
+          if (!meeting) {
+            return res.status(404).send({ msg: "Meeting not found." });
+          }
+          const googleCal = await GoogleCalendarEvent.findOne({
+            event: new mongo.Types.ObjectId(req.body.event),
+          }).select("googleEvents");
+
+          if (googleCal) {
+            const firstKey = Object.keys(req.body.slot)[0];
+            const schedule = `${firstKey}-${req.body.slot[firstKey]}`;
+            const eventGoogle = googleCal.googleEvents.find(
+              (event) => event.schedule === schedule
+            );
+            if (eventGoogle) {
+              const isCredentialSet = await setCreadential(meeting.createdBy);
+              if (isCredentialSet) {
+                const calendarId = await GetCalendarId();
+                if (calendarId) {
+                  const googleEvent = await calendar.events.get({
+                    auth: oauth2Client,
+                    calendarId: calendarId,
+                    eventId: eventGoogle.id,
+                  });
+                  const existingAttendees = googleEvent.data.attendees || [];
+                  const newAttendee = {
+                    email: req.body.email,
+                    displayName: req.body.name,
+                  };
+                  const updatedAttendees = [...existingAttendees, newAttendee];
+                  googleCalResult = await calendar.events.patch({
+                    auth: oauth2Client,
+                    calendarId: calendarId,
+                    eventId: eventGoogle.id,
+                    requestBody: {
+                      attendees: updatedAttendees,
+                    },
+                  });
+                }
+              }
+            }
+          }
           const attendee = new Attendee(req.body);
           attendee
             .save()
             .then((result) => {
-              res.status(201).send(result);
+              if (googleCalResult) {
+                res.status(201).send({
+                  result: result,
+                  htmlLink: googleCalResult.data.htmlLink,
+                });
+              } else {
+                res.status(201).send({ result: result });
+              }
             })
             .catch((e) => {
               if (e.code == 11000) {
@@ -474,6 +572,7 @@ async function run() {
               }
             });
         } catch (e) {
+          console.log(e);
           erroResponse(res, e);
         }
       }
@@ -623,7 +722,22 @@ async function run() {
         res.status(500).json({ message: "Error fetching ecommerce items" });
       }
     });
-
+    app.patch("/ecommerce/:id", logger, emptyBodyChecker, async (req, res) => {
+      try {
+        const item = await Ecommerce.findById(req.params.id);
+        UpdateHelper(item, req.body, res);
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
+    app.delete("/ecommerce/:id", logger, async (req, res) => {
+      try {
+        await Ecommerce.findByIdAndDelete(req.params.id);
+        res.status(200).send({ msg: "Delete Successful!" });
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
     // cart
     app.post(
       "/cart",
@@ -900,6 +1014,21 @@ async function run() {
       }
     });
 
+    app.get("/admin/ecommerce", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const { page = 1, limit = 15 } = req.query;
+        const options = {
+          select: "title img price isSoldOut",
+          page: parseInt(page),
+          limit: parseInt(limit),
+        };
+        const ecommerceData = await Ecommerce.paginate({}, options);
+        res.status(200).send(ecommerceData);
+      } catch (e) {
+        erroResponse(res, e);
+      }
+    });
+
     app.post(
       "/sendmail",
       logger,
@@ -915,7 +1044,6 @@ async function run() {
         mailTransporter
           .sendMail(message)
           .then((result) => {
-            console.log(result);
             res.status(200).send({ msg: "Mail Sent" });
           })
           .catch((e) => {
@@ -926,10 +1054,10 @@ async function run() {
     );
 
     app.get("/testhuzaifa", logger, async (req, res) => {
-      User.find().then((result) => {
-        for (const user of result) {
-          user.img_profile = ProfileImageSizeCutter(user.img_profile);
-          user.save();
+      Meeting.find().then(async (result) => {
+        for (const item of result) {
+          item.meetLink = {};
+          await item.save();
         }
       });
       res.send({ msg: "DONE" });
@@ -961,7 +1089,7 @@ async function run() {
       }
     });
     app.post(
-      // its post but working as get
+      // its post but working as search get
       "/guest",
       logger,
       emptyBodyChecker,
@@ -1019,6 +1147,390 @@ async function run() {
       } catch (e) {
         erroResponse(res, e);
       }
+    });
+    app.post(
+      "/insertToken",
+      logger,
+      emptyBodyChecker,
+      checkBody(["code", "id"]),
+      async (req, res) => {
+        try {
+          const isToken = await Token.where("user").equals(req.body.id);
+          if (isToken.length == 0) {
+            const result = await oauth2Client.getToken(req.body.code);
+            if (result?.tokens?.access_token) {
+              await oauth2Client.setCredentials({
+                access_token: result?.tokens?.access_token,
+                refresh_token: result?.tokens?.refresh_token,
+              });
+              const oauth2 = await google.oauth2({
+                auth: oauth2Client,
+                version: "v2",
+              });
+              const userInfo = await oauth2.userinfo.get();
+              if (userInfo) {
+                const newToken = new Token({
+                  user: req.body.id,
+                  refreshToken: result.tokens.refresh_token,
+                  registeredEmail: userInfo.data.email,
+                });
+                await newToken.save();
+              } else {
+                const newToken = new Token({
+                  user: req.body.id,
+                  refreshToken: result.tokens.refresh_token,
+                  registeredEmail: "",
+                });
+                await newToken.save();
+              }
+              res.status(201).send({ msg: "Successfully created" });
+            } else {
+              res.status(400).send({ msg: "Token Failed to get" });
+            }
+          } else {
+            res.status(400).send({ msg: "Token already exist for this user" });
+          }
+        } catch (error) {
+          console.log(error);
+          erroResponse(res, error);
+        }
+      }
+    );
+    app.post(
+      "/getToken",
+      logger,
+      emptyBodyChecker,
+      checkBody(["code"]),
+      async (req, res) => {
+        try {
+          const result = await oauth2Client.getToken(req.body.code);
+          res.send({
+            token: result.tokens.access_token,
+            exptime: result.tokens.expiry_date,
+          });
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
+    app.get("/authorization", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const scopes = ["https://www.googleapis.com/auth/calendar"];
+        if (req.query.access_type == "online") {
+          const authorizationUrl = oauth2Client.generateAuthUrl({
+            access_type: req.query.access_type,
+            scope: scopes,
+            include_granted_scopes: true,
+            state: JSON.stringify({
+              route: req.query.route,
+              access_type: req.query.access_type,
+            }),
+          });
+          res.send(authorizationUrl);
+        } else {
+          const isToken = await Token.where("user").equals(req.query.id);
+          if (isToken && isToken.length == 0) {
+            const authorizationUrl = oauth2Client.generateAuthUrl({
+              access_type: req.query.access_type,
+              scope: scopes,
+              include_granted_scopes: true,
+              state: JSON.stringify({
+                id: req.query.id,
+                route: req.query.route,
+                access_type: req.query.access_type,
+              }),
+            });
+            res.send(authorizationUrl);
+          } else {
+            res.status(400).send({ msg: "Token already exist for this user" });
+          }
+        }
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
+
+    app.post(
+      "/insertcalendar",
+      logger,
+      emptyBodyChecker,
+      checkBody(["userId", "eventId"]),
+      async (req, res) => {
+        try {
+          const userToken = await Token.findOne({
+            user: new mongo.Types.ObjectId(req.body.userId),
+          });
+          if (!userToken) {
+            return res.status(400).send({ msg: "Authorize First" });
+          }
+
+          let googleEvent = await GoogleCalendarEvent.findOne({
+            event: new mongo.Types.ObjectId(req.body.eventId),
+          });
+
+          if (googleEvent) {
+            return res
+              .status(200)
+              .send({ msg: "Event already Exist on google Calendar" });
+          }
+
+          googleEvent = new GoogleCalendarEvent({
+            event: req.body.eventId,
+          });
+
+          const result = await Meeting.findById(req.body.eventId);
+          if (!result) {
+            return res.status(400).send({ msg: "No schedule found." });
+          }
+          oauth2Client.setCredentials({
+            refresh_token: userToken.refreshToken,
+          });
+
+          const calendarName = "TimeForge";
+          const response = await calendar.calendarList.list({
+            auth: oauth2Client,
+          });
+
+          const calendars = response.data.items;
+          let isCalendarExist = false;
+          let calendarId;
+
+          for (const calendar of calendars) {
+            if (calendar.summary === calendarName) {
+              isCalendarExist = true;
+              calendarId = calendar.id;
+              break;
+            }
+          }
+
+          if (!isCalendarExist) {
+            const newCalendar = {
+              summary: calendarName,
+              description:
+                "This Calendar contains all the events from TimeForge",
+              timeZone: "Asia/Dhaka",
+            };
+            const result = await calendar.calendars.insert({
+              auth: oauth2Client,
+              resource: newCalendar,
+            });
+            calendarId = result.data.id;
+          }
+          let googleEvents = [];
+          const attendees = await Attendee.where("event").equals(
+            req.body.eventId
+          );
+          for (const key in result.events) {
+            if (Object.hasOwnProperty.call(result.events, key)) {
+              const element = result.events[key];
+              for (const item of element) {
+                const startDateTime = dayjs(
+                  `${key} ${item}`,
+                  "DDMMYY hh:mm A"
+                ).format();
+                const existAttendee = new Array();
+                for (const item2 of attendees) {
+                  const t_firstKey = Object.keys(item2.slot)[0];
+                  const t_firstItem = item2.slot[t_firstKey][0];
+                  if (t_firstKey == key && t_firstItem == item) {
+                    existAttendee.push({
+                      email: item2.email,
+                      displayName: item2.name,
+                    });
+                  }
+                }
+
+                const endDateTime = dayjs(`${key} ${item}`, "DDMMYY hh:mm A")
+                  .add(parseInt(result.duration), "m")
+                  .format();
+                let resource = {
+                  summary: result.title,
+                  description: result.desc,
+                  start: {
+                    dateTime: startDateTime,
+                    timeZone: "Asia/Dhaka",
+                  },
+                  end: {
+                    dateTime: endDateTime,
+                    timeZone: "Asia/Dhaka",
+                  },
+                  reminders: {
+                    useDefault: false,
+                    overrides: [
+                      {
+                        method: "popup",
+                        minutes: 10,
+                      },
+                    ],
+                  },
+                };
+                if (existAttendee.length != 0) {
+                  resource["attendees"] = existAttendee;
+                }
+                console.log("~ resource", resource);
+                const calResult = await calendar.events.insert({
+                  auth: oauth2Client,
+                  calendarId: calendarId,
+                  resource: resource,
+                });
+                googleEvents.push({
+                  id: calResult.data.id,
+                  htmlLink: calResult.data.htmlLink,
+                  schedule: `${key}-${item}`,
+                });
+              }
+            }
+          }
+          googleEvent.googleEvents = googleEvents;
+          await googleEvent.save();
+          res.status(201).send({
+            msg: "Event Successfully Created",
+          });
+        } catch (error) {
+          res.status(400).send({ msg: error.message });
+        }
+      }
+    );
+    app.get("/calevents", logger, emptyQueryChecker, async (req, res) => {
+      try {
+        const result = await GoogleCalendarEvent.findOne({
+          event: new mongo.Types.ObjectId(req.query.eventid),
+        }).select("googleEvents");
+        res.status(200).send(result);
+      } catch (error) {
+        erroResponse(res, error);
+      }
+    });
+    app.delete(
+      "/calevents/:id",
+      logger,
+      emptyQueryChecker,
+      async (req, res) => {
+        try {
+          await setCreadential(req.query.userId);
+          let result = null;
+          if (req.query.type == "all") {
+            result = await GoogleCalendarEvent.findOneAndDelete({
+              _id: new mongo.Types.ObjectId(req.params.id),
+            });
+          } else if (req.query.type == "single") {
+            const calendarId = await GetCalendarId();
+            const googleCal = await GoogleCalendarEvent.findOne({
+              event: new mongo.Types.ObjectId(req.query.eventid),
+            });
+            if (googleCal) {
+              if (googleCal.googleEvents.length == 1) {
+                result = await GoogleCalendarEvent.findOneAndDelete({
+                  event: new mongo.Types.ObjectId(req.query.eventid),
+                });
+              } else {
+                googleCal.googleEvents.pull({ id: req.params.id });
+                await googleCal.save();
+                if (calendarId) {
+                  result = await calendar.events.delete({
+                    auth: oauth2Client,
+                    eventId: req.params.id,
+                    calendarId: calendarId,
+                  });
+                }
+              }
+            }
+          }
+          if (result) {
+            res.status(200).send({ msg: "Delete Successful." });
+          } else {
+            res.status(400).send({ msg: "GoogleCalendar not found." });
+          }
+        } catch (error) {
+          erroResponse(res, error);
+        }
+      }
+    );
+    app.post(
+      "/createmeet",
+      logger,
+      emptyBodyChecker,
+      checkBody(["roomName", "eventid"]),
+      async (req, res) => {
+        try {
+          const meeting = await Meeting.findById(req.body.eventid);
+          if (meeting) {
+            const response = await axios.post(
+              "https://api.daily.co/v1/rooms/",
+              {
+                name: req.body.roomeName,
+                properties: {
+                  enable_people_ui: true,
+                  enable_pip_ui: true,
+                  enable_emoji_reactions: true,
+                  enable_hand_raising: true,
+                  enable_prejoin_ui: true,
+                  enable_chat: true,
+                  enable_advanced_chat: true,
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${process.env.DAILY_TOKEN}`,
+                },
+              }
+            );
+            if (response?.data) {
+              let newMeetLink = {
+                id: response.data.id,
+                name: response.data.name,
+                url: response.data.url,
+              };
+              meeting.meetLink = newMeetLink;
+              await meeting.save();
+
+              const attendees = await Attendee.where("event").equals(
+                meeting._id
+              );
+              let message = {
+                from: process.env.MAIL,
+                subject: `Meetlink for ${meeting.title}`,
+                html: `
+                <h4>Meeting Title: ${meeting.title} </h4>
+                <p>Meeting Link: <a href=${req.body.origin}/meet/${meeting._id}> ${req.body.origin}/meet/${meeting._id} </a> </p>
+                `,
+              };
+              for (const attendee of attendees) {
+                message["to"] = attendee.email;
+                mailTransporter.sendMail(message);
+              }
+              return res.status(201).send({ msg: "Link Created" });
+            } else {
+              return res.status(400).send({ msg: "Link Creation Failed" });
+            }
+          }
+        } catch (e) {
+          erroResponse(res, e);
+        }
+      }
+    );
+    app.delete("/deletemeeting/:id", logger, async (req, res) => {
+      try {
+        const meeting = await Meeting.findById(req.params.id);
+        if (meeting.meetLink?.name != "") {
+          const result = await axios.delete(
+            `https://api.daily.co/v1/rooms/${meeting.meetLink?.name}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.DAILY_TOKEN}`,
+              },
+            }
+          );
+          meeting.meetLink={}
+          await meeting.save()
+          res.send({ msg: "Delete Successfully" });
+        } else {
+          res.status(200).send({ msg: "Nothing to delete" });
+        }
+      } catch (e) {
+        erroResponse(res, e);
+      }
+      
     });
   } catch (e) {
     console.log(e);
