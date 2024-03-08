@@ -1246,6 +1246,7 @@ async function run() {
                 access_type: "offline",
               }),
             });
+            console.log("~ authorizationUrl", authorizationUrl)
             res.send(authorizationUrl);
           } else {
             res.status(400).send({ msg: "Token already exist for this user" });
