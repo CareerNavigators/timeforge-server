@@ -1170,7 +1170,6 @@ async function run() {
               });
               const userInfo = await oauth2.userinfo.get();
               if (userInfo) {
-                
                 const newToken = new Token({
                   user: req.body.id,
                   refreshToken: result.tokens.refresh_token || result?.data?.access_token,
