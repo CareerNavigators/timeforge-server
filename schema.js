@@ -563,4 +563,5 @@ module.exports = {
   Cart,
   Token,
   GoogleCalendarEvent,
+  Order,
 };
