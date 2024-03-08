@@ -1159,27 +1159,28 @@ async function run() {
           if (isToken.length == 0) {
             const result = await oauth2Client.getToken(req.body.code);
             console.log("~ result", result);
-            if (result?.data?.access_token) {
-              await oauth2Client.setCredentials({
-                access_token: result?.tokens?.access_token,
-                refresh_token: result?.tokens?.refresh_token,
-              });
+            if (result?.data?.access_token || result?.tokens?.access_token) {
+              let credential={
+                access_token: result?.data?.access_token || result?.tokens?.access_token, 
+              }
+              await oauth2Client.setCredentials(credential);
               const oauth2 = await google.oauth2({
                 auth: oauth2Client,
                 version: "v2",
               });
               const userInfo = await oauth2.userinfo.get();
               if (userInfo) {
+                
                 const newToken = new Token({
                   user: req.body.id,
-                  refreshToken: result.tokens.refresh_token,
+                  refreshToken: result.tokens.refresh_token || result?.data?.access_token,
                   registeredEmail: userInfo.data.email,
                 });
                 await newToken.save();
               } else {
                 const newToken = new Token({
                   user: req.body.id,
-                  refreshToken: result.tokens.refresh_token,
+                  refreshToken: result.tokens.refresh_token || result?.data?.access_token,
                   registeredEmail: "",
                 });
                 await newToken.save();
