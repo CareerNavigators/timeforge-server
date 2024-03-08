@@ -1158,8 +1158,8 @@ async function run() {
           const isToken = await Token.where("user").equals(req.body.id);
           if (isToken.length == 0) {
             const result = await oauth2Client.getToken(req.body.code);
-            console.log("~ result", result)
-            if (result?.tokens?.access_token && result?.tokens?.refresh_token) {
+            console.log("~ result", result);
+            if (result?.data?.access_token) {
               await oauth2Client.setCredentials({
                 access_token: result?.tokens?.access_token,
                 refresh_token: result?.tokens?.refresh_token,
@@ -1216,7 +1216,12 @@ async function run() {
     );
     app.get("/authorization", logger, emptyQueryChecker, async (req, res) => {
       try {
-        const scopes = ["https://www.googleapis.com/auth/calendar"];
+        const scopes = [
+          "https://www.googleapis.com/auth/calendar",
+          "https://www.googleapis.com/auth/calendar.events",
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile",
+        ];
         if (req.query.access_type == "online") {
           const authorizationUrl = oauth2Client.generateAuthUrl({
             access_type: req.query.access_type,
@@ -1232,13 +1237,13 @@ async function run() {
           const isToken = await Token.where("user").equals(req.query.id);
           if (isToken && isToken.length == 0) {
             const authorizationUrl = oauth2Client.generateAuthUrl({
-              access_type: req.query.access_type,
+              access_type: "offline",
               scope: scopes,
               include_granted_scopes: true,
               state: JSON.stringify({
                 id: req.query.id,
                 route: req.query.route,
-                access_type: req.query.access_type,
+                access_type: "offline",
               }),
             });
             res.send(authorizationUrl);
