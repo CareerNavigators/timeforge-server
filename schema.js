@@ -337,6 +337,10 @@ const ecommerceSchema = new mongo.Schema({
   price: {
     type: Number,
   },
+  quantity: {
+    type: Number,
+    default: 1,
+  },
   isSoldOut: {
     type: Boolean,
     default: false,
@@ -356,8 +360,44 @@ const cartSchema = new mongo.Schema({
     type: Boolean,
     default: false,
   },
+  quantity: {
+    type: Number,
+    default: 1,
+  },
 });
 const Cart = mongo.model("cart", cartSchema);
+
+// order
+const orderSchema = new mongo.Schema(
+  {
+    productId: {
+      type: [mongo.Schema.Types.ObjectId],
+      ref: "ecommerce",
+    },
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      match: [
+        /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+        "Invalid Email.",
+      ],
+    },
+    sessionId: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    addresss: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const Order = mongo.model("Order", orderSchema);
 const timeLineSchema = new mongo.Schema(
   {
     event: {
@@ -523,4 +563,5 @@ module.exports = {
   Cart,
   Token,
   GoogleCalendarEvent,
+  Order,
 };
