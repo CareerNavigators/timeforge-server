@@ -1160,7 +1160,6 @@ async function run() {
             const result = await oauth2Client.getToken(req.body.code);
             if (result?.tokens?.access_token) {
               await oauth2Client.setCredentials({
-                access_token: result?.tokens?.access_token,
                 refresh_token: result?.tokens?.refresh_token,
               });
               const oauth2 = await google.oauth2({
