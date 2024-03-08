@@ -879,8 +879,8 @@ async function run() {
     // let endpointSecret;
     // "whsec_ceb1fa9b3e1cbb1c499c40ca28c4db87389eeda4e2495d67e3e54bef5cd4e0d5";
     app.post("/paymentConfirm", logger, async (req, res) => {
-      try{
-        const id  = req.body.id;
+      try {
+        const id = req.body.id;
         console.log("Order ID from frontend:", id);
         const order = await Order.findById(id);
         // console.log(order);
@@ -892,11 +892,11 @@ async function run() {
         const addressData = newAddress.customer_details.address.city;
         console.log(addressData);
         order.addresss = addressData;
-         
+
         // Save the updated order document
         await order.save();
         res.send("Order updated successfully.");
-      }catch(err){
+      } catch (err) {
         console.log(err.message);
       }
       // res.send("")
@@ -1158,8 +1158,9 @@ async function run() {
           const isToken = await Token.where("user").equals(req.body.id);
           if (isToken.length == 0) {
             const result = await oauth2Client.getToken(req.body.code);
-            if (result?.tokens?.access_token) {
+            if (result?.tokens?.access_token && result?.tokens?.refresh_token) {
               await oauth2Client.setCredentials({
+                access_token: result?.tokens?.access_token,
                 refresh_token: result?.tokens?.refresh_token,
               });
               const oauth2 = await google.oauth2({
@@ -1520,8 +1521,8 @@ async function run() {
               },
             }
           );
-          meeting.meetLink={}
-          await meeting.save()
+          meeting.meetLink = {};
+          await meeting.save();
           res.send({ msg: "Delete Successfully" });
         } else {
           res.status(200).send({ msg: "Nothing to delete" });
@@ -1529,7 +1530,6 @@ async function run() {
       } catch (e) {
         erroResponse(res, e);
       }
-      
     });
   } catch (e) {
     console.log(e);
