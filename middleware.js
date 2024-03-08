@@ -2,7 +2,7 @@ const cc = require("node-console-colors");
 
 function logger(req, res, next) {
     let date = new Date()
-    console.log(cc.set("fg_yellow", date.toLocaleString("en-US"), cc.set("fg_purple", req.method), cc.set("fg_cyan", req.url)));
+    // console.log(cc.set("fg_yellow", date.toLocaleString("en-US"), cc.set("fg_purple", req.method), cc.set("fg_cyan", req.url)));
     next()
 }
 /**

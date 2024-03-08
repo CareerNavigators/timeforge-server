@@ -1158,6 +1158,7 @@ async function run() {
           const isToken = await Token.where("user").equals(req.body.id);
           if (isToken.length == 0) {
             const result = await oauth2Client.getToken(req.body.code);
+            console.log("~ result", result)
             if (result?.tokens?.access_token && result?.tokens?.refresh_token) {
               await oauth2Client.setCredentials({
                 access_token: result?.tokens?.access_token,
