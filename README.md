@@ -82,3 +82,9 @@ TimeForge Backend Server serves as the backbone of the TimeForge project, provid
    - Open your browser and navigate to [http://localhost:5111](http://localhost:5111) to view the server.
 
 That's it! You've successfully set up and run the app with locally.
+
+# Contributions…
+
+<a href="https://github.com/CareerNavigators/timeforge-client/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=CareerNavigators/timeforge-client" />
+</a>
